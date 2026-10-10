@@ -196,6 +196,7 @@ export async function fetchEpisode(
       ...data.episode,
       saved: data.saved,
       label: data.label,
+      video_only: data.video_only ?? null,
       status: {
         stage: (data.stage || data.status || "ready") as ProcessingStage,
         error: data.error || null,
@@ -292,6 +293,7 @@ export async function patchEpisodeChanges(
           ...data.episode,
           saved: data.saved,
           label: data.label,
+          video_only: data.video_only ?? null,
           status: {
             stage: (data.stage || data.status || "ready") as ProcessingStage,
             error: data.error || null,
@@ -341,6 +343,7 @@ export async function resetSavedEpisode(
           ...data.episode,
           saved: data.saved,
           label: data.label,
+          video_only: data.video_only ?? null,
           status: {
             stage: (data.stage || data.status || "ready") as ProcessingStage,
             error: data.error || null,
@@ -364,4 +367,27 @@ export async function resetSavedEpisode(
 export function getExportUrl(episodeId: string, format: "json" | "zip"): string {
   const apiBase = getApiBase();
   return `${apiBase}/episodes/${episodeId}/export?format=${format}`;
+}
+
+export interface FeatureFlags {
+  SIDE_BY_SIDE: boolean;
+  COPILOT: boolean;
+  REVIEW_QUEUE: boolean;
+  [key: string]: boolean;
+}
+
+const NO_FLAGS: FeatureFlags = { SIDE_BY_SIDE: false, COPILOT: false, REVIEW_QUEUE: false };
+
+/** Feature switches from GET /config. Any failure → everything off (mvp-v1 behaviour). */
+export async function fetchFlags(): Promise<FeatureFlags> {
+  const apiBase = getApiBase();
+  if (!apiBase) return NO_FLAGS;
+  try {
+    const res = await fetch(`${apiBase}/config`, { cache: "no-store" });
+    if (!res.ok) return NO_FLAGS;
+    const data = await res.json();
+    return { ...NO_FLAGS, ...(data.flags || {}) };
+  } catch {
+    return NO_FLAGS;
+  }
 }

@@ -19,6 +19,16 @@ def _noun(text: str | None) -> str | None:
     return t.strip(" .") or None
 
 
+def _tidy(text: str | None, limit: int = 240) -> str:
+    """Guard against model loops: collapse a phrase repeated 3+ times, then cap the length."""
+    t = (text or "").strip()
+    t = re.sub(r"(.{6,}?)\1{2,}", r"\1", t)
+    if len(t) > limit:
+        cut = t[:limit]
+        t = cut[: cut.rfind(" ")].rstrip(" ,;") + "…" if " " in cut else cut + "…"
+    return t
+
+
 def _clamp(t: float, duration: float) -> float:
     return round(min(max(t, 0.0), duration), 2) if duration > 0 else round(max(t, 0.0), 2)
 
@@ -66,14 +76,14 @@ def assemble(output: ModelOutput, *, episode_id: str, duration: float, pipeline:
             "id": f"action-{i:02d}",
             "start": start,
             "end": max(start, _clamp(a.end, duration)),
-            "observed_action": a.observed_action.strip(),
+            "observed_action": _tidy(a.observed_action),
             "verb": a.verb if a.verb in VERBS else "other",
             "object": _noun(a.object) or "unknown",
             "tool": _noun(a.tool),
             "instruction": a.instruction.strip(),
             "visual_evidence": a.visual_evidence.strip(),
             "stated_reason": link(a.stated_reason, "stated reason", uncertainty),
-            "inferred_reason": (a.inferred_reason or "").strip() or None,
+            "inferred_reason": _tidy(a.inferred_reason) or None,
             "why_matters": a.why_matters,
             "attempt": a.attempt,
             "outcome": a.outcome,
@@ -112,10 +122,10 @@ def assemble(output: ModelOutput, *, episode_id: str, duration: float, pipeline:
     task_notes: list[str] = []
     task = {
         "name": output.task.name.strip(),
-        "summary": output.task.summary.strip(),
+        "summary": _tidy(output.task.summary, 200),
         "declared_intent": link(output.task.declared_intent, "declared intent", task_notes),
         "outcome": output.task.outcome,
-        "outcome_evidence": output.task.outcome_evidence.strip(),
+        "outcome_evidence": _tidy(output.task.outcome_evidence),
         "uncertainty": task_notes,
     }
     if not narration:

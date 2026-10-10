@@ -145,7 +145,7 @@ export interface Episode {
   pending_questions: PendingQuestion[];
   clarifications: Clarification[];
   template_check: unknown | null;
-  video_only: unknown | null;
+  video_only: Episode | null;
   human_corrections: HumanCorrection[];
   saved?: boolean;
   label?: string;
