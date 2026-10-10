@@ -29,6 +29,13 @@ def _tidy(text: str | None, limit: int = 240) -> str:
     return t
 
 
+def first_sentence(text: str | None, limit: int = 200) -> str:
+    """The summary is one sentence by contract; drop anything the model ran on with after it."""
+    t = _tidy(text, 400)
+    m = re.match(r"(.+?[.!?])(\s|$)", t)
+    return _tidy(m.group(1) if m else t, limit)
+
+
 def _clamp(t: float, duration: float) -> float:
     return round(min(max(t, 0.0), duration), 2) if duration > 0 else round(max(t, 0.0), 2)
 
@@ -122,7 +129,7 @@ def assemble(output: ModelOutput, *, episode_id: str, duration: float, pipeline:
     task_notes: list[str] = []
     task = {
         "name": output.task.name.strip(),
-        "summary": _tidy(output.task.summary, 200),
+        "summary": first_sentence(output.task.summary),
         "declared_intent": link(output.task.declared_intent, "declared intent", task_notes),
         "outcome": output.task.outcome,
         "outcome_evidence": _tidy(output.task.outcome_evidence),

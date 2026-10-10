@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -10,12 +11,14 @@ import {
   getApiBase,
   fetchSavedEpisodes,
   SavedEpisodeListItem,
+  fetchFlags,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
+  ListChecks,
   Camera,
   Upload,
   AlertCircle,
@@ -51,6 +54,12 @@ function CapturePageContent() {
   });
 
   const apiBase = getApiBase();
+
+  // Templates (feature): show the Template check entry when switched on
+  const [templatesOn, setTemplatesOn] = React.useState(false);
+  React.useEffect(() => {
+    fetchFlags().then((f) => setTemplatesOn(Boolean(f.TEMPLATES)));
+  }, []);
 
   // Load real saved episode from server (P0.3)
   React.useEffect(() => {
@@ -166,6 +175,15 @@ function CapturePageContent() {
         </div>
 
         <div className="flex items-center gap-2">
+          {templatesOn && (
+            <Link
+              href="/templates"
+              className="h-9 px-3 rounded-md border border-slate-200 bg-white text-sm text-slate-800 font-medium inline-flex items-center gap-1.5 hover:bg-slate-50"
+            >
+              <ListChecks className="w-4 h-4 text-slate-500" />
+              Template check
+            </Link>
+          )}
           {forceMock ? (
             <Badge variant="outline" className="text-[11px] gap-1.5 py-1 text-orange-700 border-orange-200 bg-orange-50 font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
