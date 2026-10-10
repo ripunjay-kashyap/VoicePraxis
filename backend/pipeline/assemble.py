@@ -4,9 +4,19 @@ Adds ids, clamps and sorts times, checks that every narration reference points a
 a real utterance, and fills pending_questions. Never invents content.
 """
 
-from pipeline.models import ModelOutput
+import re
+
+from pipeline.models import VERBS, ModelOutput
 
 SCHEMA_VERSION = "0.2"
+
+
+def _noun(text: str | None) -> str | None:
+    """Lowercase noun phrase without leading articles, so labels group across clips."""
+    if not text:
+        return None
+    t = re.sub(r"^(the|a|an|his|her|their|its|this|that)\s+", "", text.strip().lower())
+    return t.strip(" .") or None
 
 
 def _clamp(t: float, duration: float) -> float:
@@ -48,6 +58,9 @@ def assemble(output: ModelOutput, *, episode_id: str, duration: float, pipeline:
             "start": start,
             "end": max(start, _clamp(a.end, duration)),
             "observed_action": a.observed_action.strip(),
+            "verb": a.verb if a.verb in VERBS else "other",
+            "object": _noun(a.object) or "unknown",
+            "tool": _noun(a.tool),
             "instruction": a.instruction.strip(),
             "visual_evidence": a.visual_evidence.strip(),
             "stated_reason": link(a.stated_reason, "stated reason", uncertainty),

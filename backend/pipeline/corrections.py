@@ -7,12 +7,15 @@ the old value and a timestamp, so the export shows exactly what a person changed
 import copy
 import time
 
-ACTION_TEXT = {"observed_action", "instruction", "inferred_reason"}
+ACTION_TEXT = {"observed_action", "instruction", "inferred_reason", "object", "tool"}
 ACTION_ENUMS = {
     "outcome": {"success", "failed", "unresolved"},
     "attempt": {"first", "retry", "recovery"},
     "review_status": {"unreviewed", "accepted", "needs_review"},
 }
+from pipeline.models import VERBS  # noqa: E402
+
+ACTION_ENUMS["verb"] = set(VERBS)
 ACTION_TIMES = {"start", "end"}
 TASK_TEXT = {"name"}
 TASK_ENUMS = {"outcome": {"success", "failed", "unresolved"}}
@@ -30,7 +33,7 @@ def _check_value(target: str, field: str, value, duration: float):
         if value is not None and not isinstance(value, str):
             raise CorrectionError(f"{field} must be text")
         value = value.strip() if isinstance(value, str) else None
-        if field in {"name", "observed_action", "instruction"} and not value:
+        if field in {"name", "observed_action", "instruction", "object"} and not value:
             raise CorrectionError(f"{field} can't be empty")
         return value or None
     if field in enums:

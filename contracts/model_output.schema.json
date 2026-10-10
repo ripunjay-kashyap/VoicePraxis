@@ -1,25 +1,61 @@
 {
-  "$comment": "What Gemini must return for one clip (draft v0, Oct 10). The backend's assemble step turns this into episode JSON 0.2 (ids, review fields, pending_questions, clarifications, template_check). All times are decimal seconds from the start of the clip.",
+  "$comment": "What Gemini must return for one clip (v2, adds verb/object/tool, Oct 10). The backend's assemble step turns this into episode JSON 0.2 (ids, review fields, pending_questions, clarifications, template_check). All times are decimal seconds from the start of the clip.",
   "type": "object",
-  "required": ["scene", "task", "narration", "actions"],
+  "required": [
+    "scene",
+    "task",
+    "narration",
+    "actions"
+  ],
   "properties": {
-    "scene": { "type": "string", "description": "Short place description, e.g. 'kitchen counter'." },
+    "scene": {
+      "type": "string",
+      "description": "Short place description, e.g. 'kitchen counter'."
+    },
     "task": {
       "type": "object",
-      "required": ["name", "declared_intent", "outcome", "outcome_evidence"],
+      "required": [
+        "name",
+        "declared_intent",
+        "outcome",
+        "outcome_evidence"
+      ],
       "properties": {
-        "name": { "type": "string", "description": "Short task name in plain words." },
+        "name": {
+          "type": "string",
+          "description": "Short task name in plain words."
+        },
         "declared_intent": {
-          "type": ["object", "null"],
+          "type": [
+            "object",
+            "null"
+          ],
           "description": "What the person SAID they want to achieve. null if they never said it.",
-          "required": ["text", "utterance_id"],
+          "required": [
+            "text",
+            "utterance_id"
+          ],
           "properties": {
-            "text": { "type": "string" },
-            "utterance_id": { "type": "string" }
+            "text": {
+              "type": "string"
+            },
+            "utterance_id": {
+              "type": "string"
+            }
           }
         },
-        "outcome": { "type": "string", "enum": ["success", "failed", "unresolved"] },
-        "outcome_evidence": { "type": "string", "description": "What in the video supports the outcome." }
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "success",
+            "failed",
+            "unresolved"
+          ]
+        },
+        "outcome_evidence": {
+          "type": "string",
+          "description": "What in the video supports the outcome."
+        }
       }
     },
     "narration": {
@@ -27,13 +63,37 @@
       "description": "Every spoken utterance, verbatim, in order. Empty if nothing is said or there is no audio.",
       "items": {
         "type": "object",
-        "required": ["id", "start", "end", "text", "mode"],
+        "required": [
+          "id",
+          "start",
+          "end",
+          "text",
+          "mode"
+        ],
         "properties": {
-          "id": { "type": "string", "description": "u1, u2, ..." },
-          "start": { "type": "number" },
-          "end": { "type": "number" },
-          "text": { "type": "string" },
-          "mode": { "type": "string", "enum": ["before", "during", "after", "general"], "description": "Relative to the action it talks about." }
+          "id": {
+            "type": "string",
+            "description": "u1, u2, ..."
+          },
+          "start": {
+            "type": "number"
+          },
+          "end": {
+            "type": "number"
+          },
+          "text": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "before",
+              "during",
+              "after",
+              "general"
+            ],
+            "description": "Relative to the action it talks about."
+          }
         }
       }
     },
@@ -42,27 +102,154 @@
       "description": "Physical steps visible in the video, in time order.",
       "items": {
         "type": "object",
-        "required": ["start", "end", "observed_action", "instruction", "visual_evidence", "stated_reason", "inferred_reason", "why_matters", "attempt", "outcome", "uncertainty"],
+        "required": [
+          "start",
+          "end",
+          "observed_action",
+          "verb",
+          "object",
+          "tool",
+          "instruction",
+          "visual_evidence",
+          "stated_reason",
+          "inferred_reason",
+          "why_matters",
+          "attempt",
+          "outcome",
+          "uncertainty"
+        ],
         "properties": {
-          "start": { "type": "number" },
-          "end": { "type": "number" },
-          "observed_action": { "type": "string", "description": "Only what the video shows." },
-          "instruction": { "type": "string", "description": "Plain imperative command a robot could follow." },
-          "visual_evidence": { "type": "string", "description": "What is visible that supports this step." },
+          "start": {
+            "type": "number"
+          },
+          "end": {
+            "type": "number"
+          },
+          "observed_action": {
+            "type": "string",
+            "description": "Only what the video shows."
+          },
+          "instruction": {
+            "type": "string",
+            "description": "Plain imperative command a robot could follow."
+          },
+          "visual_evidence": {
+            "type": "string",
+            "description": "What is visible that supports this step."
+          },
           "stated_reason": {
-            "type": ["object", "null"],
+            "type": [
+              "object",
+              "null"
+            ],
             "description": "A reason the person SAID for this step. null if none was said.",
-            "required": ["text", "utterance_id"],
+            "required": [
+              "text",
+              "utterance_id"
+            ],
             "properties": {
-              "text": { "type": "string" },
-              "utterance_id": { "type": "string" }
+              "text": {
+                "type": "string"
+              },
+              "utterance_id": {
+                "type": "string"
+              }
             }
           },
-          "inferred_reason": { "type": ["string", "null"], "description": "Your own best guess at why, from what is visible. Never copy a stated reason here. null if you cannot tell." },
-          "why_matters": { "type": "boolean", "description": "True if this is a decision point where knowing why would help someone repeat the task." },
-          "attempt": { "type": "string", "enum": ["first", "retry", "recovery"] },
-          "outcome": { "type": "string", "enum": ["success", "failed", "unresolved"] },
-          "uncertainty": { "type": "array", "items": { "type": "string" }, "description": "Reasons a reviewer should double-check this step." }
+          "inferred_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Your own best guess at why, from what is visible. Never copy a stated reason here. null if you cannot tell."
+          },
+          "why_matters": {
+            "type": "boolean",
+            "description": "True if this is a decision point where knowing why would help someone repeat the task."
+          },
+          "attempt": {
+            "type": "string",
+            "enum": [
+              "first",
+              "retry",
+              "recovery"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failed",
+              "unresolved"
+            ]
+          },
+          "uncertainty": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Reasons a reviewer should double-check this step."
+          },
+          "verb": {
+            "type": "string",
+            "enum": [
+              "take",
+              "put",
+              "hold",
+              "lift",
+              "lower",
+              "place",
+              "position",
+              "align",
+              "press",
+              "push",
+              "pull",
+              "twist",
+              "turn",
+              "open",
+              "close",
+              "insert",
+              "remove",
+              "attach",
+              "detach",
+              "screw",
+              "unscrew",
+              "cut",
+              "peel",
+              "fold",
+              "unfold",
+              "tape",
+              "pour",
+              "scoop",
+              "mix",
+              "stir",
+              "wipe",
+              "clean",
+              "inflate",
+              "deflate",
+              "flip",
+              "shake",
+              "tighten",
+              "loosen",
+              "release",
+              "inspect",
+              "point",
+              "adjust",
+              "other"
+            ],
+            "description": "Main hand action, from this fixed vocabulary so labels are consistent across clips. Use 'other' only if nothing fits."
+          },
+          "object": {
+            "type": "string",
+            "description": "Main object acted on: a short lowercase noun phrase without articles, e.g. 'inner tube', 'lid', 'latch'."
+          },
+          "tool": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Tool used, lowercase noun (e.g. 'pump', 'box cutter'). null if only hands."
+          }
         }
       }
     }

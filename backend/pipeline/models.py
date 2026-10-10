@@ -27,10 +27,16 @@ class Utterance(BaseModel):
     mode: Literal["before", "during", "after", "general"] = "general"
 
 
+VERBS = ('take', 'put', 'hold', 'lift', 'lower', 'place', 'position', 'align', 'press', 'push', 'pull', 'twist', 'turn', 'open', 'close', 'insert', 'remove', 'attach', 'detach', 'screw', 'unscrew', 'cut', 'peel', 'fold', 'unfold', 'tape', 'pour', 'scoop', 'mix', 'stir', 'wipe', 'clean', 'inflate', 'deflate', 'flip', 'shake', 'tighten', 'loosen', 'release', 'inspect', 'point', 'adjust', 'other')
+
+
 class Action(BaseModel):
     start: float
     end: float
     observed_action: str
+    verb: str = "other"
+    object: str = ""
+    tool: str | None = None
     instruction: str
     visual_evidence: str = ""
     stated_reason: SaidRef | None = None

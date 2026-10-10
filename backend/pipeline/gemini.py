@@ -29,7 +29,7 @@ class Settings:
     media_resolution: str = "default"
     thinking_level: str = "low"
     mode: str = "static"
-    prompt_version: str = "base_v1"
+    prompt_version: str = "base_v2"
     max_output_tokens: int = 8192
 
 
