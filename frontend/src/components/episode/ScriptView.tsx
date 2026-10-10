@@ -43,7 +43,7 @@ export function ScriptView({
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-      <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)] text-[11px] uppercase font-medium tracking-wider border-b border-slate-200 bg-white">
+      <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,1fr)] text-[11px] uppercase font-medium tracking-wider border-b border-slate-200 bg-white">
         <div className="px-2 py-2 text-slate-500">Time</div>
         <div className="px-3 py-2 text-sky-700 flex items-center gap-1.5">
           <Eye className="w-3.5 h-3.5" /> Seen · video
@@ -65,12 +65,12 @@ export function ScriptView({
                 <li
                   key={a.id}
                   className={cn(
-                    "grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)]",
+                    "grid grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,1fr)]",
                     active && "bg-sky-50",
                     selectedActionId === a.id && "outline outline-1 outline-sky-300 -outline-offset-1"
                   )}
                 >
-                  <span className="px-2 py-2.5 font-mono text-[11px] text-slate-500">{formatTimestamp(a.start)}</span>
+                  <span className="px-2 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{formatTimestamp(a.start)}</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -93,8 +93,8 @@ export function ScriptView({
             const active = currentTime >= u.start && currentTime < u.end;
             const linked = explains.get(u.id) ?? [];
             return (
-              <li key={u.id} className={cn("grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)]", active && "bg-orange-50")}>
-                <span className="px-2 py-2.5 font-mono text-[11px] text-slate-500">{formatTimestamp(u.start)}</span>
+              <li key={u.id} className={cn("grid grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,1fr)]", active && "bg-orange-50")}>
+                <span className="px-2 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{formatTimestamp(u.start)}</span>
                 <span />
                 <button
                   type="button"
