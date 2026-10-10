@@ -22,7 +22,6 @@ import {
   Sparkles,
   ArrowRight,
   FileVideo,
-  Cpu,
   QrCode,
   FileCheck2,
   Smartphone,
@@ -159,9 +158,6 @@ function CapturePageContent() {
           <div>
             <h1 className="text-lg font-semibold tracking-tight text-slate-900 flex items-center gap-2">
               VoicePraxis
-              <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-mono border border-slate-200">
-                MVP
-              </span>
             </h1>
             <p className="text-xs text-slate-500">
               Task-level annotation from narrated video
@@ -175,12 +171,7 @@ function CapturePageContent() {
               <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
               Mock data
             </Badge>
-          ) : apiBase ? (
-            <Badge variant="outline" className="text-[11px] gap-1.5 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              API Connected
-            </Badge>
-          ) : (
+          ) : apiBase ? null : (
             <Badge variant="missed" className="text-[11px] gap-1.5 py-1">
               Backend Not Configured
             </Badge>
@@ -230,12 +221,9 @@ function CapturePageContent() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center justify-between">
                 <span>New recording</span>
-                <span className="text-xs font-mono text-slate-500 font-normal">
-                  Target: 25–35 s (up to 90 s) · Max 200 MB
-                </span>
               </CardTitle>
               <CardDescription>
-                Record live using your smartphone or upload a pre-recorded demonstration video.
+                Record on this device, or upload a clip up to 90 seconds.
               </CardDescription>
             </CardHeader>
 
@@ -271,9 +259,6 @@ function CapturePageContent() {
                     <Upload className="w-5 h-5 text-sky-700" />
                     Upload Video File
                   </div>
-                  <span className="text-[11px] font-normal text-slate-500">
-                    Browse MP4 / MOV from local library
-                  </span>
                 </Button>
               </div>
 
@@ -295,7 +280,7 @@ function CapturePageContent() {
                   <FileVideo className="w-6 h-6 text-sky-700" />
                 </div>
                 <p className="text-sm font-medium text-slate-800 mb-1">
-                  {selectedFile ? selectedFile.name : "Drag & drop video clip here"}
+                  {selectedFile ? selectedFile.name : "Or drag a video here"}
                 </p>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
                   {selectedFile ? (
@@ -303,7 +288,7 @@ function CapturePageContent() {
                       {formatFileSize(selectedFile.size)} · Ready to upload
                     </span>
                   ) : (
-                    "Supports iPhone MOV, Android MP4, and WebM (up to 200 MB, up to 90 s)"
+                    null
                   )}
                 </p>
               </div>
@@ -396,56 +381,15 @@ function CapturePageContent() {
             <div className="mt-3.5 space-y-1">
               <p className="text-xs font-semibold text-slate-800 flex items-center justify-center gap-1.5">
                 <Smartphone className="w-3.5 h-3.5 text-sky-700" />
-                <span>Scan with mobile camera</span>
+                <span>Record on your phone</span>
               </p>
               <p className="text-[11px] text-slate-500 leading-relaxed max-w-xs mx-auto">
-                Open VoicePraxis directly on your phone to record with the back camera and neck mount.
+                Scan to open this page on your phone.
               </p>
             </div>
           </Card>
-
-          {/* Three Token Legend */}
-          <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs font-mono space-y-2">
-            <span className="text-[10px] uppercase text-slate-500 block font-bold">
-              Color Language
-            </span>
-            <div className="space-y-1.5 text-[11px]">
-              <div className="flex items-center gap-2 text-sky-700">
-                <span className="w-2.5 h-2.5 rounded-full bg-sky-400" />
-                <span>Seen · what the video shows</span>
-              </div>
-              <div className="flex items-center gap-2 text-orange-700">
-                <span className="w-2.5 h-2.5 rounded-full bg-orange-400" />
-                <span>Said · what the person says</span>
-              </div>
-              <div className="flex items-center gap-2 text-emerald-700 font-semibold">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                <span>Why · reasons and intent, linked to steps</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-        <div className="flex items-center gap-2">
-          <Cpu className="w-4 h-4 text-slate-500" />
-          <span>Scene → Task → Sub-intent → Action · JSON export</span>
-        </div>
-        {savedEpisode && (
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => router.push(`/e/${savedEpisode.id}`)}
-              className="text-emerald-700 hover:text-emerald-700 underline font-mono cursor-pointer flex items-center gap-1"
-            >
-              <span>{savedEpisode.label}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-      </footer>
     </main>
   );
 }

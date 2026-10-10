@@ -30,31 +30,31 @@ const ORDERED_STAGES: ProcessingStep[] = [
   {
     stage: "uploaded",
     label: "Uploaded",
-    description: "Multi-part demonstration video received and committed to storage",
+    description: "Your video is safely stored",
     icon: UploadCloud,
   },
   {
     stage: "converting",
-    label: "Converting media",
-    description: "Encoding H.264 playback MP4 with faststart for range streaming",
+    label: "Preparing video",
+    description: "Preparing the video for playback",
     icon: Film,
   },
   {
     stage: "listening",
     label: "Listening",
-    description: "Speech-to-text with word timings (gemini-3.5-transcribe)",
+    description: "Transcribing what the person says",
     icon: Mic,
   },
   {
     stage: "analysing",
     label: "Watching",
-    description: "Gemini reads the video with the transcript: steps, sub-intents and reasons",
+    description: "Finding the steps, sub-goals and reasons",
     icon: Eye,
   },
   {
     stage: "linking",
-    label: "Linking reasons to steps",
-    description: "Linking stated and inferred reasons to robot instruction boundaries",
+    label: "Linking reasons",
+    description: "Connecting each reason to its step",
     icon: Sparkles,
   },
 ];
@@ -68,7 +68,6 @@ interface ProcessingViewProps {
 export function ProcessingView({
   stage,
   error,
-  episodeId,
 }: ProcessingViewProps) {
   const router = useRouter();
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
@@ -131,14 +130,10 @@ export function ProcessingView({
           </div>
 
           <CardTitle className="text-lg">
-            {!isFailed ? "Processing Demonstration" : "Processing Failed"}
+            {!isFailed ? "Analysing your recording" : "Processing Failed"}
           </CardTitle>
-          <CardDescription className="font-mono text-xs text-slate-500">
-            Episode ID: <span className="text-slate-800">{episodeId}</span> · Elapsed:{" "}
-            <span className="text-emerald-700 font-semibold">
-              {formatElapsed(elapsedSeconds)}
-            </span>{" "}
-            (Target ~45–60 s)
+          <CardDescription className="text-sm text-slate-500">
+            {formatElapsed(elapsedSeconds)} elapsed · usually under a minute
           </CardDescription>
         </CardHeader>
 

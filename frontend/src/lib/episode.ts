@@ -179,3 +179,9 @@ export function formatTimestamp(seconds: number, includeSubseconds = false): str
   }
   return `${mins}:${Math.floor(secs).toString().padStart(2, "0")}`;
 }
+
+/** "action-05" → "Step 5" (user-facing; ids stay internal) */
+export function stepLabel(id: string): string {
+  const n = parseInt(id.split("-").pop() || "", 10);
+  return Number.isFinite(n) ? `Step ${n}` : id;
+}

@@ -13,6 +13,8 @@ import {
 import {
   Episode,
   ProcessingStage,
+  formatTimestamp,
+  stepLabel,
 } from "@/lib/episode";
 import { VideoPlayer } from "@/components/episode/VideoPlayer";
 import { ThreeLaneTimeline } from "@/components/episode/ThreeLaneTimeline";
@@ -28,7 +30,6 @@ import {
   HelpCircle,
   FileCode,
   Mic,
-  Cpu,
   RotateCcw,
   AlertTriangle,
   FileCheck2,
@@ -165,7 +166,7 @@ function EpisodeShellPageContent() {
       <div className="flex-1 flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3 text-slate-500">
           <div className="w-8 h-8 border-2 border-emerald-300 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-mono">Loading episode {episodeId}...</p>
+          <p className="text-sm">Loading…</p>
           {isSlowLoading && (
             <p className="text-xs text-amber-700 font-mono animate-pulse">
               Waking the server (first load may take ~5–10 s)...
@@ -279,15 +280,9 @@ function EpisodeShellPageContent() {
           <div className="h-4 w-px bg-slate-100" />
 
           <div>
-            <h1 className="text-sm sm:text-base font-semibold text-slate-900 flex items-center gap-2">
-              <span>Episode</span>
-              <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-100 text-emerald-700 border border-slate-200">
-                {episode.episode_id}
-              </span>
-            </h1>
-            <p className="text-[11px] text-slate-500">
-              Scene: <span className="text-slate-800 font-medium">{episode.scene || "demonstration"}</span> ·{" "}
-              {episode.duration_seconds}s duration
+            <h1 className="text-sm sm:text-base font-semibold text-slate-900">Review</h1>
+            <p className="text-xs text-slate-500 capitalize">
+              {episode.scene || "Recording"} · {formatTimestamp(episode.duration_seconds)}
             </p>
           </div>
         </div>
@@ -299,12 +294,6 @@ function EpisodeShellPageContent() {
             </Badge>
           )}
 
-          {episode.pipeline && (
-            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600 font-mono text-xs gap-1.5 hidden md:inline-flex">
-              <Cpu className="w-3 h-3 text-slate-500" />
-              {episode.pipeline.model} ({episode.pipeline.fps}fps)
-            </Badge>
-          )}
 
           <Button
             variant="secondary"
@@ -313,7 +302,7 @@ function EpisodeShellPageContent() {
             className="gap-1.5 text-xs font-mono cursor-pointer"
           >
             <FileCode className="w-3.5 h-3.5 text-emerald-700" />
-            Export / Download
+            Export
           </Button>
         </div>
       </header>
@@ -322,9 +311,6 @@ function EpisodeShellPageContent() {
       {episode.saved && (
         <div className="rounded-xl border border-emerald-200     p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
           <div className="flex items-center gap-2.5">
-            <Badge variant="why" className="text-[10px] uppercase font-medium tracking-wider">
-              Saved Reference
-            </Badge>
             <span className="text-xs sm:text-sm font-semibold text-emerald-800">
               {episode.label || "Saved episode · bike tube test clip (YouTube)"}
             </span>
@@ -356,8 +342,11 @@ function EpisodeShellPageContent() {
       <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs uppercase font-medium tracking-wider text-slate-500">
-            <span>Demonstrated Task</span>
-            <span className="text-emerald-700 font-semibold">• Outcome: {episode.task.outcome}</span>
+            <span>Task</span>
+            <span className="text-slate-400">·</span>
+            <span className={episode.task.outcome === "success" ? "text-emerald-700" : episode.task.outcome === "failed" ? "text-red-700" : "text-amber-700"}>
+              {episode.task.outcome === "success" ? "Completed" : episode.task.outcome === "failed" ? "Not completed" : "Outcome unclear"}
+            </span>
           </div>
           <h2 className="text-base sm:text-lg font-bold text-slate-900 capitalize">
             {episode.task.name}
@@ -369,17 +358,13 @@ function EpisodeShellPageContent() {
             <p className="text-xs text-orange-700 flex items-center gap-1.5 pt-0.5">
               <Mic className="w-3.5 h-3.5 text-orange-700 shrink-0" />
               <span>
-                <strong className="text-orange-700 font-mono">Declared Intent:</strong> &ldquo;
+                <strong className="text-orange-700 font-medium">Stated goal:</strong> &ldquo;
                 {episode.task.declared_intent.text}&rdquo;
               </span>
             </p>
           )}
         </div>
 
-        <div className="text-xs text-slate-500 max-w-md bg-white p-2.5 rounded-lg border border-slate-200">
-          <p className="font-semibold text-slate-600 mb-0.5 text-[11px]">Outcome Evidence:</p>
-          <p className="text-[11px] leading-relaxed text-slate-500">{episode.task.outcome_evidence}</p>
-        </div>
       </div>
 
       {/* Sub-intents: phases of the task */}
@@ -415,18 +400,14 @@ function EpisodeShellPageContent() {
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-xs uppercase font-medium text-emerald-700 font-bold">
                   <HelpCircle className="w-4 h-4 text-emerald-700" />
-                  Copilot Clarification Pending
+                  Questions for the person
                 </span>
-                <Badge variant="why" className="text-[10px]">
-                  {episode.pending_questions.length} Active
-                </Badge>
+                <span className="text-xs text-emerald-700">{episode.pending_questions.length}</span>
               </div>
               {episode.pending_questions.map((pq) => (
                 <div key={pq.id} className="text-xs space-y-1 bg-white p-3 rounded-lg border border-emerald-200">
                   <p className="text-slate-800 font-medium">&ldquo;{pq.question}&rdquo;</p>
-                  <p className="text-[11px] text-slate-500 font-mono">
-                    Target: {pq.action_ref} · Triggered because why_matters is true with no stated reason
-                  </p>
+                  <p className="text-xs text-slate-500">About {stepLabel(pq.action_ref).toLowerCase()}</p>
                 </div>
               ))}
             </div>
@@ -499,7 +480,7 @@ export default function Page() {
     <React.Suspense
       fallback={
         <div className="flex-1 flex items-center justify-center min-h-[60vh] text-slate-500 font-mono text-sm">
-          Loading episode...
+          Loading…
         </div>
       }
     >

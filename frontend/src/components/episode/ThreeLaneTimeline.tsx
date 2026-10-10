@@ -101,9 +101,6 @@ export function ThreeLaneTimeline({
           </span>
         </div>
 
-        <div className="font-mono text-xs text-slate-500">
-          Playhead: <span className="text-emerald-700 font-semibold">{formatTimestamp(currentTime, true)}</span>
-        </div>
       </div>
 
       {/* Main Timeline Interactive Canvas Area */}

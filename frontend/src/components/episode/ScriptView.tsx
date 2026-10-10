@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Eye, Mic, Link2, Play } from "lucide-react";
-import { EpisodeAction, NarrationUtterance, formatTimestamp } from "@/lib/episode";
+import { EpisodeAction, NarrationUtterance, formatTimestamp, stepLabel } from "@/lib/episode";
 import { cn } from "@/lib/utils";
 
 interface ScriptViewProps {
@@ -108,7 +108,7 @@ export function ScriptView({
                   </span>
                   {linked.length > 0 && (
                     <span className="inline-flex items-center gap-1 font-mono text-[10px] text-emerald-700">
-                      <Link2 className="w-3 h-3" /> why for {linked.join(", ")}
+                      <Link2 className="w-3 h-3" /> Explains {linked.map((id) => stepLabel(id).toLowerCase()).join(", ")}
                     </span>
                   )}
                 </button>

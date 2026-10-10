@@ -6,6 +6,7 @@ import {
   TaskOutcome,
   ActionReviewStatus,
   formatTimestamp,
+  stepLabel,
 } from "@/lib/episode";
 import { PatchChange } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -160,9 +161,13 @@ export function SidePanel({
       <CardHeader className="p-4 border-b border-slate-200 bg-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs uppercase px-2 py-0.5 rounded bg-slate-100 text-emerald-700 font-bold border border-slate-200">
-              {action.id}
-            </span>
+            <span className="text-sm font-semibold text-slate-900">{stepLabel(action.id)}</span>
+            {action.verb && (
+              <span className="text-xs px-1.5 py-0.5 rounded border border-sky-200 bg-sky-50 text-sky-700">
+                {action.verb} · {action.object}
+                {action.tool ? ` · ${action.tool}` : ""}
+              </span>
+            )}
             <span className="font-mono text-xs text-slate-600">
               {formatTimestamp(action.start)} – {formatTimestamp(action.end)}
             </span>
@@ -250,20 +255,20 @@ export function SidePanel({
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <Badge variant="seen" className="gap-1">
             <Eye className="w-3 h-3" />
-            🔵 Seen
+            Seen
           </Badge>
 
           {action.stated_reason && (
             <Badge variant="said" className="gap-1">
               <Mic className="w-3 h-3" />
-              🟠 Said
+              Said
             </Badge>
           )}
 
           {action.why_matters && (
             <Badge variant="why" className="gap-1">
               <Sparkles className="w-3 h-3" />
-              🟢 Why Hero
+              Why Hero
             </Badge>
           )}
 
@@ -315,7 +320,7 @@ export function SidePanel({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="text-[11px] uppercase font-medium text-sky-700 flex items-center gap-1">
-              <span>Observed Action (Visual Only)</span>
+              <span>What happened</span>
               {isFieldEdited("observed_action") && (
                 <span className="text-[11px] text-amber-700 font-bold">• Edited</span>
               )}
@@ -339,7 +344,7 @@ export function SidePanel({
         <div className="space-y-2">
           <label className="text-[11px] uppercase font-medium text-emerald-700 flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Reasoning &amp; Intent Linkage</span>
+            <span>Why</span>
           </label>
 
           <div className="text-xs bg-white p-3 rounded-lg border border-emerald-200 space-y-2.5">
@@ -347,7 +352,11 @@ export function SidePanel({
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono text-orange-700 uppercase font-semibold">
-                  Said by the person {action.stated_reason?.utterance_id || action.stated_reason?.evidence_ref ? `(${action.stated_reason.utterance_id || action.stated_reason.evidence_ref})` : ""}:
+                  {action.stated_reason?.source === "human"
+                    ? "Added by reviewer"
+                    : action.stated_reason?.source === "clarification"
+                      ? "Answered by the person (after recording)"
+                      : "Said by the person"}
                 </span>
                 {isFieldEdited("stated_reason") && (
                   <span className="text-[11px] text-amber-700 font-bold font-mono">• Edited</span>
@@ -356,7 +365,7 @@ export function SidePanel({
               {isEditing ? (
                 <textarea
                   value={statedReason}
-                  placeholder="Enter verbatim spoken reason..."
+                  placeholder="Why was this step done?"
                   onChange={(e) => setStatedReason(e.target.value)}
                   rows={2}
                   className="w-full text-xs p-2 rounded border border-orange-300 bg-white text-slate-900 mt-1 focus:outline-none"
@@ -366,7 +375,7 @@ export function SidePanel({
                   &ldquo;{action.stated_reason.text}&rdquo;
                 </p>
               ) : (
-                <p className="text-slate-500 mt-1 italic">No reason verbalized during action.</p>
+                <p className="text-slate-500 mt-1 italic">No reason given.</p>
               )}
             </div>
 
@@ -374,11 +383,8 @@ export function SidePanel({
             <div className="pt-2 border-t border-emerald-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-mono text-emerald-700 uppercase font-semibold">
-                    Model guess (from video only)
-                  </span>
-                  <span className="text-[11px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 font-mono border border-emerald-200">
-                    Inferred
+                  <span className="text-[11px] text-slate-500 uppercase font-medium">
+                    Model&rsquo;s guess
                   </span>
                 </div>
                 {isFieldEdited("inferred_reason") && (
@@ -388,7 +394,7 @@ export function SidePanel({
               {isEditing ? (
                 <textarea
                   value={inferredReason}
-                  placeholder="Enter inferred rationale hypothesis..."
+                  placeholder="Model's guess"
                   onChange={(e) => setInferredReason(e.target.value)}
                   rows={2}
                   className="w-full text-xs p-2 rounded border border-emerald-300 bg-white text-slate-900 mt-1 focus:outline-none"
@@ -402,16 +408,16 @@ export function SidePanel({
           </div>
         </div>
 
+        {isEditing && (
+          <>
         {/* 4. Timestamp Adjustments (Keyboard [ and ] or Phone Tap Buttons) */}
         <div className="space-y-1.5 p-3 rounded-lg border border-slate-200 bg-white">
           <div className="flex items-center justify-between text-xs">
             <span className="font-mono text-[11px] text-slate-600 flex items-center gap-1">
               <Clock className="w-3 h-3 text-slate-500" />
-              Step Boundaries
+              Adjust timing
             </span>
-            <span className="font-mono text-[10px] text-slate-500">
-              Keys: [ start · ] end
-            </span>
+
           </div>
 
           <div className="grid grid-cols-2 gap-2 pt-1">
@@ -435,6 +441,8 @@ export function SidePanel({
             </Button>
           </div>
         </div>
+          </>
+        )}
 
         {/* 5. Review Status & Outcome Selectors in Edit Mode */}
         {isEditing && (
@@ -471,22 +479,15 @@ export function SidePanel({
           </div>
         )}
 
-        {/* 6. Visual Evidence & Uncertainty */}
-        <div className="space-y-1.5 pt-1 text-xs">
-          <span className="text-[10px] uppercase font-medium text-slate-500">Visual Evidence:</span>
-          <p className="text-[11px] text-slate-500 bg-white p-2 rounded border border-slate-200">
-            {action.visual_evidence}
-          </p>
-        </div>
 
         {action.uncertainty && action.uncertainty.length > 0 && (
           <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs">
             <span className="text-[10px] uppercase font-medium text-amber-700 flex items-center gap-1">
               <AlertTriangle className="w-3 h-3 text-amber-700" />
-              Uncertainty Notes
+              Check this
             </span>
             {action.uncertainty.map((u, i) => (
-              <p key={i} className="text-[11px] text-amber-700 font-mono">
+              <p key={i} className="text-xs text-amber-800">
                 • {u}
               </p>
             ))}

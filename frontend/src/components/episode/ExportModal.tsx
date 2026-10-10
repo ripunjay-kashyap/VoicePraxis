@@ -5,7 +5,6 @@ import { Episode, EpisodeAction } from "@/lib/episode";
 import { getExportUrl } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Download,
   Copy,
@@ -67,10 +66,7 @@ export function ExportModal({
         <CardHeader className="p-4 border-b border-slate-200 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <FileCode className="w-5 h-5 text-emerald-700" />
-            <CardTitle className="text-base">Export Training Data</CardTitle>
-            <Badge variant="why" className="text-[10px] font-mono">
-              v0.2 Standard
-            </Badge>
+            <CardTitle className="text-base">Export</CardTitle>
           </div>
 
           <button
@@ -95,7 +91,7 @@ export function ExportModal({
                     : "text-slate-500 hover:text-slate-900"
                 }`}
               >
-                Selected Step Preview
+                This step
               </button>
               <button
                 type="button"
@@ -106,7 +102,7 @@ export function ExportModal({
                     : "text-slate-500 hover:text-slate-900"
                 }`}
               >
-                Full Episode JSON
+                Whole episode
               </button>
             </div>
 
@@ -137,9 +133,7 @@ export function ExportModal({
 
           {/* Action Download Buttons with plain HTML links for Safari (P0.4) */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200">
-            <p className="text-[11px] text-slate-500 font-mono">
-              Server-generated exports with verified human corrections
-            </p>
+            <p className="text-xs text-slate-500">Includes your edits.</p>
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <a
@@ -157,7 +151,7 @@ export function ExportModal({
                 className="inline-flex items-center justify-center gap-2 rounded-lg text-xs font-mono font-semibold h-9 px-4 bg-emerald-500 text-white hover:bg-emerald-400 transition-colors flex-1 sm:flex-initial"
               >
                 <Package className="w-3.5 h-3.5" />
-                Training Bundle (.zip)
+                JSON + video (.zip)
               </a>
             </div>
           </div>
