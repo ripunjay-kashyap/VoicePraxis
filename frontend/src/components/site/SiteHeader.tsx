@@ -7,14 +7,31 @@ import { ArrowRight } from "lucide-react";
 import { useFlags } from "@/lib/useFlags";
 import { cn } from "@/lib/utils";
 
+/** Chrono-aperture mark: three time arcs, a playhead and the pinned annotation, on a dark tile. */
 export function Logo({ className }: { className?: string }) {
+  const id = React.useId().replace(/:/g, "");
   return (
-    <svg viewBox="0 0 28 28" className={cn("w-7 h-7", className)} aria-hidden="true">
-      <rect width="28" height="28" rx="7" fill="#0f172a" />
-      <rect x="6.5" y="11" width="2.6" height="6" rx="1.3" fill="#fff" />
-      <rect x="11" y="7.5" width="2.6" height="13" rx="1.3" fill="#fff" />
-      <rect x="15.5" y="10" width="2.6" height="8" rx="1.3" fill="#fff" />
-      <rect x="20" y="12.5" width="2.6" height="3" rx="1.3" fill="#fb923c" />
+    <svg viewBox="8 8 84 84" className={cn("w-8 h-8", className)} aria-hidden="true" fill="none">
+      <defs>
+        <linearGradient id={`${id}g`} x1="20" y1="20" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#00F5FF" />
+          <stop offset="50%" stopColor="#6366F1" />
+          <stop offset="100%" stopColor="#A855F7" />
+        </linearGradient>
+        <filter id={`${id}f`} x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2.5" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+      <rect x="8" y="8" width="84" height="84" rx="20" fill="#0f172a" />
+      <path d="M 22 52 A 32 32 0 0 1 48 18" stroke={`url(#${id}g)`} strokeWidth="5" strokeLinecap="round" opacity="0.5" />
+      <path d="M 64 22 A 32 32 0 0 1 82 54" stroke={`url(#${id}g)`} strokeWidth="8" strokeLinecap="round" />
+      <path d="M 78 68 A 32 32 0 0 1 30 78" stroke={`url(#${id}g)`} strokeWidth="6" strokeLinecap="round" opacity="0.8" />
+      <circle cx="50" cy="50" r="20" stroke="#38BDF8" strokeWidth="1.5" strokeDasharray="2 5" opacity="0.5" />
+      <line x1="50" y1="20" x2="50" y2="80" stroke="#F8FAFC" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="50" cy="38" r="5.5" fill="#00F5FF" filter={`url(#${id}f)`} />
+      <circle cx="50" cy="38" r="2.2" fill="#FFFFFF" />
+      <circle cx="34" cy="56" r="2.6" fill="#818CF8" opacity="0.85" />
     </svg>
   );
 }
