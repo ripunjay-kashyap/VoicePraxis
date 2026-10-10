@@ -19,13 +19,13 @@ VOL_PATH = Path("/data")
 CACHE = Path("/tmp/cache")
 VIDEO_EXTS = {".mov", ".mp4", ".m4v", ".webm", ".3gp", ".mkv"}
 MAX_BYTES = 200 * 1024 * 1024
-FLAG_NAMES = ("SIDE_BY_SIDE", "COPILOT", "TEMPLATES", "INDIC", "VISION_OVERLAY")
+FLAG_NAMES = ("SIDE_BY_SIDE", "COPILOT", "REVIEW_QUEUE", "TEMPLATES", "INDIC", "VISION_OVERLAY")
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("ffmpeg")
     .pip_install("fastapi[standard]>=0.115", "python-multipart", "google-genai>=2.29", "pydantic>=2")
-    .add_local_python_source("pipeline")
+    .add_local_python_source("pipeline", "features")
     .add_local_dir(Path(__file__).parent / "prompts", "/root/prompts")
     .add_local_dir(Path(__file__).parent.parent / "contracts", "/root/contracts")
 )
@@ -76,7 +76,7 @@ def process_episode(episode_id: str) -> None:
         info = probe(src)
         if not info.has_video:
             raise GeminiError("This file has no video track.")
-        playback, _noaudio = convert(src, Path("/tmp/work") / episode_id)
+        playback, noaudio = convert(src, Path("/tmp/work") / episode_id)
         # Duration from our own H.264 output: originals can carry extra streams that skew it.
         info.duration = probe(playback).duration
         if info.duration > MAX_SECONDS + 1:
@@ -86,6 +86,16 @@ def process_episode(episode_id: str) -> None:
         convert_s = time.time() - t0
 
         pool = KeyPool()
+
+        # Feature hook (SIDE_BY_SIDE): camera-only run in parallel; never blocks the episode.
+        camera_future = None
+        if flags()["SIDE_BY_SIDE"]:
+            from concurrent.futures import ThreadPoolExecutor
+
+            from features.side_by_side import camera_only
+
+            camera_pool = ThreadPoolExecutor(1)
+            camera_future = camera_pool.submit(camera_only, pool, noaudio, episode_id=episode_id, duration=info.duration)
         transcript, stt_meta = None, {"stt_model": None}
         if info.has_audio:
             update(episode_id, status="analysing", stage="listening")
@@ -99,6 +109,12 @@ def process_episode(episode_id: str) -> None:
         meta.update(stt_meta)
 
         update(episode_id, stage="linking")
+        camera_result = None
+        if camera_future is not None:
+            try:
+                camera_result = camera_future.result(timeout=120)
+            except Exception as e:  # optional feature: log and continue
+                print(f"[side_by_side] {episode_id} failed: {type(e).__name__}: {e}")
         episode = assemble(output, episode_id=episode_id, duration=info.duration, pipeline=meta,
                            transcript=transcript or None)
         if info.hdr:
@@ -111,7 +127,7 @@ def process_episode(episode_id: str) -> None:
             duration=round(info.duration, 2),
             model_output=episode,
             corrections=[],
-            video_only_output=None,
+            video_only_output=camera_result,
             template_id=None,
             timings={"convert_s": round(convert_s, 1), "stt_s": meta.get("stt_s"), "upload_s": meta["upload_s"],
                      "generation_s": meta["generation_s"], "total_s": round(time.time() - t0, 1)},
@@ -144,7 +160,7 @@ def api():
     web.add_middleware(
         CORSMiddleware,
         # Vercel previews/production, any localhost port, and LAN dev servers (phone testing)
-        allow_origin_regex=r"https://.*\.vercel\.app|http://(localhost|127\.0\.0\.1)(:\d+)?|http://(192\.168|10)\.\d+\.\d+(\.\d+)?(:\d+)?",
+        allow_origin_regex=r"https://.*\.vercel\.app|http://(localhost|127\.0\.0\.1)(:\d+)?|http://\d+\.\d+\.\d+\.\d+(:\d+)?",
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],

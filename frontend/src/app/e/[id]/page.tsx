@@ -9,6 +9,8 @@ import {
   patchEpisodeChanges,
   resetSavedEpisode,
   PatchChange,
+  fetchFlags,
+  FeatureFlags,
 } from "@/lib/api";
 import {
   Episode,
@@ -20,6 +22,7 @@ import { VideoPlayer } from "@/components/episode/VideoPlayer";
 import { ThreeLaneTimeline } from "@/components/episode/ThreeLaneTimeline";
 import { SidePanel } from "@/components/episode/SidePanel";
 import { ProcessingView } from "@/components/episode/ProcessingView";
+import { SideBySide } from "@/components/episode/SideBySide";
 import { SubtaskStrip } from "@/components/episode/SubtaskStrip";
 import { ScriptView } from "@/components/episode/ScriptView";
 import { ExportModal } from "@/components/episode/ExportModal";
@@ -55,6 +58,11 @@ function EpisodeShellPageContent() {
   const [playbackEndTarget, setPlaybackEndTarget] = React.useState<number | null>(null);
 
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const [flags, setFlags] = React.useState<FeatureFlags | null>(null);
+
+  React.useEffect(() => {
+    fetchFlags().then(setFlags);
+  }, []);
 
   const loadData = React.useCallback(async () => {
     try {
@@ -366,6 +374,11 @@ function EpisodeShellPageContent() {
         </div>
 
       </div>
+
+      {/* Feature: camera only vs with narration (SIDE_BY_SIDE); hidden when off or missing */}
+      {flags?.SIDE_BY_SIDE && episode.video_only && (
+        <SideBySide withNarration={episode} cameraOnly={episode.video_only} onSeek={handleSeek} />
+      )}
 
       {/* Sub-intents: phases of the task */}
       <SubtaskStrip
