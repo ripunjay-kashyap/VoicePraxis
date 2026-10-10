@@ -1,4 +1,4 @@
-import { Episode } from "./episode";
+import { Episode, HumanCorrection } from "./episode";
 import { MOCK_EPISODE } from "./mock-episode";
 
 /**
@@ -161,7 +161,6 @@ export async function fetchEpisode(
  */
 export function getVideoUrl(id: string, forceMock = false): string {
   if (forceMock || id === "mock" || id === "ep_20261010_container_001") {
-    // If running with mock, can point to static sample video if present, or an empty placeholder
     return "/sample-video.mp4";
   }
 
@@ -171,4 +170,48 @@ export function getVideoUrl(id: string, forceMock = false): string {
   }
 
   return `${apiBase}/episodes/${id}/video`;
+}
+
+/**
+ * Patch action corrections preserving original model output (Rule 7).
+ */
+export async function patchEpisodeAction(
+  episodeId: string,
+  actionId: string,
+  corrections: HumanCorrection[]
+): Promise<boolean> {
+  const apiBase = getApiBase();
+  if (!apiBase || episodeId === "mock" || episodeId === "ep_20261010_container_001") {
+    // In mock mode, state updates locally in UI
+    return true;
+  }
+
+  try {
+    const res = await fetch(`${apiBase}/episodes/${episodeId}/actions/${actionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ corrections }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("Failed to patch corrections to backend:", err);
+    return false;
+  }
+}
+
+/**
+ * Trigger client-side download of episode.json
+ */
+export function downloadEpisodeJson(episode: Episode, filename?: string): void {
+  const dataStr =
+    "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(episode, null, 2));
+  const downloadAnchor = document.createElement("a");
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute(
+    "download",
+    filename || `${episode.episode_id || "episode"}.json`
+  );
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
 }
