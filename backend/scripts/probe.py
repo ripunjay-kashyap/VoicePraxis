@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -22,19 +21,65 @@ from google import genai
 from google.genai import types
 
 BACKEND = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BACKEND))
+from pipeline.media import convert  # noqa: E402  (same command as production)
+
+# Load backend/.env (KEY=value lines) without overriding variables already set.
+_env = BACKEND / ".env"
+if _env.exists():
+    import os
+    for _line in _env.read_text().splitlines():
+        if "=" in _line and not _line.lstrip().startswith("#"):
+            _k, _v = _line.split("=", 1)
+            os.environ.setdefault(_k.strip(), _v.strip())
+
+
+class KeyPool:
+    """GEMINI_API_KEY may hold several comma-separated keys; rotate on rate limits.
+
+    Uploaded files belong to one key's project, so each key uploads its own copy (lazily).
+    """
+
+    def __init__(self) -> None:
+        import os, threading
+        keys = [k.strip() for k in os.environ.get("GEMINI_API_KEY", "").split(",") if k.strip()]
+        if not keys:
+            sys.exit("GEMINI_API_KEY is not set (backend/.env)")
+        self.clients = [genai.Client(api_key=k) for k in keys]
+        self.files: dict[tuple[int, bool], types.File] = {}
+        self.lock = threading.Lock()
+        self.upload_s: dict[tuple[int, bool], float] = {}
+
+    def __len__(self) -> int:
+        return len(self.clients)
+
+    def file(self, i: int, audio: bool, path: Path) -> types.File:
+        with self.lock:
+            if (i, audio) not in self.files:
+                f, secs = upload(self.clients[i], path)
+                self.files[(i, audio)] = f
+                self.upload_s[(i, audio)] = secs
+                print(f"  key {i + 1}: upload+ACTIVE ({'audio' if audio else 'no audio'}) {secs:.1f}s")
+            return self.files[(i, audio)]
+
+
+def is_rate_limit(e: Exception) -> bool:
+    text = f"{type(e).__name__} {e}"
+    return "429" in text or "RESOURCE_EXHAUSTED" in text or "quota" in text.lower()
+
 ROOT = BACKEND.parent
 SCHEMA = json.loads((ROOT / "contracts" / "model_output.schema.json").read_text())
 PROMPT = (BACKEND / "prompts" / "base_v0.md").read_text()
 OUT = BACKEND / "probe_out"
 
-FLASH = "gemini-3.8-flash"
-PRO = "gemini-3.1-pro-preview"
+LITE = "gemini-3.5-flash-lite"  # main model (Oct 10): 15 RPM / 500 RPD per key on the free tier
+FLASH = "gemini-3.8-flash"  # quality reference only: 5 RPM / 20 RPD
 
 
 @dataclass(frozen=True)
 class Run:
     name: str
-    model: str = FLASH
+    model: str = LITE
     fps: float = 4
     res: str = "default"  # default | low
     thinking: str = "default"  # default | low
@@ -46,30 +91,10 @@ MATRIX = [
     Run("R2"),
     Run("R3", res="low"),
     Run("R4", thinking="low"),
-    Run("R5", model=PRO),
+    Run("R5", model=FLASH),  # quality ceiling: is Lite giving much up?
     Run("R6", audio=False),  # R2 settings without audio: preview of the side-by-side gap
+    Run("R7", fps=6),  # faster actions, if R2's timestamps are off
 ]
-
-
-def convert(src: Path, workdir: Path) -> tuple[Path, Path]:
-    """Production conversion: playback.mp4 (H.264, max 720p) and noaudio.mp4 (same frames)."""
-    workdir.mkdir(parents=True, exist_ok=True)
-    playback, noaudio = workdir / "playback.mp4", workdir / "noaudio.mp4"
-    if not playback.exists():
-        subprocess.run(
-            ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src),
-             "-vf", "scale=-2:'min(720,ih)'", "-c:v", "libx264", "-preset", "veryfast",
-             "-crf", "26", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
-             "-movflags", "+faststart", str(playback)],
-            check=True,
-        )
-    if not noaudio.exists():
-        subprocess.run(
-            ["ffmpeg", "-y", "-loglevel", "error", "-i", str(playback), "-an", "-c:v", "copy",
-             "-movflags", "+faststart", str(noaudio)],
-            check=True,
-        )
-    return playback, noaudio
 
 
 def upload(client: genai.Client, path: Path) -> tuple[types.File, float]:
@@ -123,8 +148,8 @@ def call(client: genai.Client, run: Run, file: types.File) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("video", type=Path)
-    ap.add_argument("--matrix", action="store_true", help="run R1–R6 concurrently")
-    ap.add_argument("--model", default=FLASH)
+    ap.add_argument("--matrix", action="store_true", help="run R1–R7 concurrently")
+    ap.add_argument("--model", default=LITE)
     ap.add_argument("--fps", type=float, default=4)
     ap.add_argument("--res", choices=["default", "low"], default="default")
     ap.add_argument("--thinking", choices=["default", "low"], default="default")
@@ -134,15 +159,9 @@ def main() -> None:
 
     clip = args.video.stem
     playback, noaudio = convert(args.video, OUT / clip / "media")
-    client = genai.Client()
-
-    files = {}
-    with ThreadPoolExecutor(2) as pool:
-        for audio, path in ((True, playback), (False, noaudio)):
-            files[audio] = pool.submit(upload, client, path)
-    files = {k: v.result() for k, v in files.items()}
-    for audio, (f, secs) in files.items():
-        print(f"upload+ACTIVE ({'audio' if audio else 'no audio'}): {secs:.1f}s")
+    pool = KeyPool()
+    print(f"{len(pool)} API key(s); uploading media...")
+    paths = {True: playback, False: noaudio}
 
     if args.matrix:
         runs = MATRIX
@@ -150,17 +169,27 @@ def main() -> None:
         runs = [Run("custom", args.model, args.fps, args.res, args.thinking, not args.no_audio)]
     runs = [replace(r, name=f"{r.name}-{i + 1}" if args.runs > 1 else r.name) for r in runs for i in range(args.runs)]
 
-    def go(run: Run) -> tuple[Run, dict]:
-        try:
-            return run, call(client, run, files[run.audio][0])
-        except Exception as e:  # keep the other runs going
-            return run, {"error": f"{type(e).__name__}: {e}"}
+    def go(idx_run: tuple[int, Run]) -> tuple[Run, dict]:
+        idx, run = idx_run
+        last = None
+        for attempt in range(len(pool)):
+            k = (idx + attempt) % len(pool)  # spread runs across keys, rotate on rate limit
+            try:
+                r = call(pool.clients[k], run, pool.file(k, run.audio, paths[run.audio]))
+                r["key"] = k + 1
+                return run, r
+            except Exception as e:
+                last = e
+                if not is_rate_limit(e):
+                    break
+                print(f"  {run.name}: rate limited on key {k + 1}, trying next key")
+        return run, {"error": f"{type(last).__name__}: {last}"}
 
-    with ThreadPoolExecutor(len(runs)) as pool:
-        results = list(pool.map(go, runs))
+    with ThreadPoolExecutor(len(runs)) as ex:
+        results = list(ex.map(go, enumerate(runs)))
 
     stamp = time.strftime("%H%M%S")
-    print(f"\n{'run':8} {'model':24} {'fps':>4} {'res':7} {'think':7} {'audio':5} {'gen_s':>6} {'in_tok':>7} {'json':5} {'act':>3} {'utt':>3} {'said':>4} {'guess':>5}")
+    print(f"\n{'run':8} {'model':24} {'fps':>4} {'res':7} {'think':7} {'audio':5} {'gen_s':>6} {'in_tok':>7} {'json':5} {'act':>3} {'utt':>3} {'said':>4} {'guess':>5} key")
     for run, r in results:
         (OUT / clip / f"{run.name}_{stamp}.json").write_text(json.dumps({"run": asdict(run), **r}, indent=2))
         if "error" in r:
@@ -168,7 +197,7 @@ def main() -> None:
             continue
         print(f"{run.name:8} {run.model:24} {run.fps:>4} {run.res:7} {run.thinking:7} {str(run.audio):5} "
               f"{r['generation_s']:>6} {str(r['prompt_tokens']):>7} {str(r['valid_json']):5} "
-              f"{r.get('n_actions', '-'):>3} {r.get('n_utterances', '-'):>3} {r.get('n_stated_reasons', '-'):>4} {r.get('n_inferred_reasons', '-'):>5}")
+              f"{r.get('n_actions', '-'):>3} {r.get('n_utterances', '-'):>3} {r.get('n_stated_reasons', '-'):>4} {r.get('n_inferred_reasons', '-'):>5} {r.get('key')}")
     print(f"\nFull outputs: {OUT / clip}")
 
 
