@@ -69,7 +69,7 @@ export default function NewTemplatePage() {
       </header>
 
       <ol className="flex gap-4 text-xs text-slate-500">
-        {["Record the reference", "Confirm the steps", "Check takes"].map((label, i) => {
+        {["Upload the reference", "Confirm the steps", "Check takes"].map((label, i) => {
           const active = (i === 0 && !episodeId) || (i === 1 && episodeId);
           return (
             <li key={label} className={active ? "text-slate-900 font-medium" : ""}>
@@ -82,13 +82,13 @@ export default function NewTemplatePage() {
       {!episodeId && (
         <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4">
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">Record the right way</h2>
+            <h2 className="text-sm font-semibold text-slate-900">Upload the right way</h2>
             <p className="text-sm text-slate-500">
-              Do the task once, correctly, and say what you&rsquo;re doing and why at each step. This becomes the
-              checklist every take is compared with.
+              A video of the task done once, correctly, with each step said out loud. It becomes the checklist
+              every take is compared with.
             </p>
           </div>
-          <VideoPicker onUploaded={setEpisodeId} purpose="reference" recordLabel="Record reference" uploadLabel="Upload reference" />
+          <VideoPicker onUploaded={setEpisodeId} purpose="reference" allowRecord={false} uploadLabel="Upload the reference video" />
         </section>
       )}
 
