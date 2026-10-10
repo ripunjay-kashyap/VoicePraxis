@@ -4,8 +4,6 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ProcessingStage } from "@/lib/episode";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Loader2,
   CheckCircle2,
@@ -113,134 +111,97 @@ export function ProcessingView({
   const currentIdx = getStageIndex(stage);
   const isFailed = stage === "failed";
 
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center max-w-2xl w-full mx-auto p-4 sm:p-6 space-y-6">
-      <Card className="w-full border-slate-200 bg-white shadow-sm relative overflow-hidden">
-        {/* Glow accent */}
-        {!isFailed && (
-          <div className="absolute top-0 left-0 right-0 h-1     animate-pulse" />
-        )}
-        {isFailed && (
-          <div className="absolute top-0 left-0 right-0 h-1 bg-red-500" />
-        )}
+  const progress = isFailed ? 0 : Math.round((Math.min(currentIdx, visibleStages.length) / visibleStages.length) * 100);
 
-        <CardHeader className="text-center pb-2">
-          <div className="flex justify-center mb-2">
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center max-w-xl w-full mx-auto px-4 sm:px-6 py-10">
+      <div className="w-full rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="h-1 bg-slate-100">
+          <div
+            className={`h-full transition-all duration-700 ${isFailed ? "bg-red-500 w-full" : "bg-slate-900"}`}
+            style={isFailed ? undefined : { width: `${Math.max(progress, 6)}%` }}
+          />
+        </div>
+
+        <div className="px-6 pt-6 pb-4 text-center">
+          <div className="flex justify-center mb-3">
             {!isFailed ? (
-              <div className="w-12 h-12 rounded-xl bg-emerald-500 border border-emerald-300 flex items-center justify-center text-emerald-700">
-                <Loader2 className="w-6 h-6 animate-spin text-emerald-700" />
+              <div className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center">
+                <Loader2 className="w-5 h-5 animate-spin text-slate-700" />
               </div>
             ) : (
-              <div className="w-12 h-12 rounded-xl bg-red-500 border border-red-300 flex items-center justify-center text-red-700">
-                <AlertTriangle className="w-6 h-6 text-red-700" />
+              <div className="w-11 h-11 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
               </div>
             )}
           </div>
+          <h2 className="text-lg font-semibold text-slate-900">
+            {!isFailed ? "Analysing your recording" : "We couldn\u2019t process this recording"}
+          </h2>
+          <p className="text-sm text-slate-500 mt-1">
+            {!isFailed ? `${formatElapsed(elapsedSeconds)} elapsed \u00b7 usually under a minute` : "Try again, or open the saved example."}
+          </p>
+        </div>
 
-          <CardTitle className="text-lg">
-            {!isFailed ? "Analysing your recording" : "Processing Failed"}
-          </CardTitle>
-          <CardDescription className="text-sm text-slate-500">
-            {formatElapsed(elapsedSeconds)} elapsed · usually under a minute
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-6 pt-4">
-          {/* Failed state message & actions */}
+        <div className="px-4 sm:px-6 pb-6">
           {isFailed ? (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700 space-y-1">
-                <p className="font-semibold text-red-800">Error Details:</p>
-                <p className="font-mono">{error || "An unexpected error occurred during processing."}</p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <Button
-                  variant="secondary"
-                  className="flex-1 gap-2 cursor-pointer"
-                  onClick={() => router.push("/")}
-                >
+              {error && (
+                <p className="p-3.5 rounded-lg border border-red-200 bg-red-50 text-sm text-red-800">{error}</p>
+              )}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button variant="secondary" className="flex-1 gap-2 cursor-pointer" onClick={() => router.push("/capture")}>
                   <RotateCcw className="w-4 h-4" />
-                  Try Again
+                  Try again
                 </Button>
-                <Button
-                  variant="why"
-                  className="flex-1 gap-2 cursor-pointer"
-                  onClick={() => router.push("/e/saved-example-01")}
-                >
+                <Button className="flex-1 gap-2 cursor-pointer" onClick={() => router.push("/e/saved-example-01")}>
                   <FileCheck2 className="w-4 h-4" />
-                  Open Saved Episode
+                  Open the example
                 </Button>
               </div>
             </div>
           ) : (
-            /* Progress Stepper */
-            <div className="space-y-3">
+            <ol className="space-y-1">
               {visibleStages.map((step, idx) => {
                 const StepIcon = step.icon;
                 const isCompleted = currentIdx > idx;
                 const isCurrent = currentIdx === idx;
-
                 return (
-                  <div
+                  <li
                     key={step.stage}
-                    className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${
-                      isCurrent
-                        ? "border-emerald-300 bg-emerald-50"
-                        : isCompleted
-                        ? "border-slate-200 bg-white"
-                        : "border-slate-200 bg-white opacity-60"
-                    }`}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${isCurrent ? "bg-slate-50" : ""}`}
                   >
-                    <div className="mt-0.5 shrink-0">
+                    <span
+                      className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border ${
+                        isCompleted
+                          ? "bg-emerald-600 border-emerald-600 text-white"
+                          : isCurrent
+                            ? "bg-white border-slate-900 text-slate-900"
+                            : "bg-white border-slate-200 text-slate-400"
+                      }`}
+                    >
                       {isCompleted ? (
-                        <div className="w-6 h-6 rounded-full bg-emerald-500 border border-emerald-300 flex items-center justify-center text-emerald-700">
-                          <CheckCircle2 className="w-4 h-4" />
-                        </div>
+                        <CheckCircle2 className="w-4 h-4" />
                       ) : isCurrent ? (
-                        <div className="w-6 h-6 rounded-full bg-emerald-500 border border-emerald-400 flex items-center justify-center text-emerald-700 animate-pulse">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        </div>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
-                        <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500">
-                          <StepIcon className="w-3.5 h-3.5" />
-                        </div>
+                        <StepIcon className="w-3.5 h-3.5" />
                       )}
-                    </div>
-
+                    </span>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p
-                          className={`text-xs font-semibold ${
-                            isCurrent
-                              ? "text-emerald-700 font-mono"
-                              : isCompleted
-                              ? "text-slate-800 font-mono"
-                              : "text-slate-500"
-                          }`}
-                        >
-                          {step.label}
-                        </p>
-                        {isCurrent && (
-                          <Badge variant="why" className="text-[10px] py-0 px-2 font-mono">
-                            In progress
-                          </Badge>
-                        )}
-                        {isCompleted && (
-                          <span className="text-[10px] font-mono text-emerald-700">Done</span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                        {step.description}
+                      <p className={`text-sm ${isCurrent ? "font-semibold text-slate-900" : isCompleted ? "text-slate-700" : "text-slate-400"}`}>
+                        {step.label}
                       </p>
+                      {isCurrent && <p className="text-xs text-slate-500 mt-0.5">{step.description}</p>}
                     </div>
-                  </div>
+                    {isCompleted && <span className="text-xs text-slate-400">Done</span>}
+                  </li>
                 );
               })}
-            </div>
+            </ol>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
