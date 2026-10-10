@@ -14,7 +14,9 @@ import { TemplateStep, createTemplate } from "@/lib/api";
 export default function NewTemplatePage() {
   const router = useRouter();
   const [episodeId, setEpisodeId] = React.useState<string | null>(null);
-  const { episode } = useEpisode(episodeId);
+  const polled = useEpisode(episodeId).episode;
+  // Ignore a previous upload's data (the hook keeps its last value until the next poll).
+  const episode = polled && episodeId && polled.episode_id === episodeId ? polled : null;
   const [draft, setDraft] = React.useState<{ name: string; steps: TemplateStep[] } | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -43,6 +45,12 @@ export default function NewTemplatePage() {
   const update = (i: number, patch: Partial<TemplateStep>) =>
     setSteps((s) => s.map((st, j) => (j === i ? { ...st, ...patch } : st)));
 
+  const startOver = () => {
+    setEpisodeId(null);
+    setDraft(null);
+    setError(null);
+  };
+
   const confirm = async () => {
     if (!episodeId || !steps) return;
     const clean = steps.filter((s) => s.instruction.trim());
@@ -54,7 +62,11 @@ export default function NewTemplatePage() {
     setError(null);
     const r = await createTemplate(episodeId, name.trim() || "Reference", clean);
     setSaving(false);
-    if (r.ok && r.data && typeof r.data.id === "string") router.push(`/templates/${r.data.id}`);
+    if (r.ok && r.data && typeof r.data.id === "string") {
+      const id = r.data.id;
+      startOver(); // this page stays alive in the background; leave it blank for the next reference
+      router.push(`/templates/${id}`);
+    }
     else setError(r.detail || "Couldn't save the reference.");
   };
 
@@ -66,6 +78,11 @@ export default function NewTemplatePage() {
         </Link>
         <div className="h-4 w-px bg-slate-200" />
         <h1 className="text-base font-semibold text-slate-900">New reference</h1>
+        {episodeId && (
+          <button type="button" onClick={startOver} className="ml-auto text-xs text-slate-500 hover:text-slate-900 cursor-pointer">
+            Start over
+          </button>
+        )}
       </header>
 
       <ol className="flex gap-4 text-xs text-slate-500">
