@@ -1,0 +1,181 @@
+{
+  "schema_version": "0.2",
+  "episode_id": "ep_20261010_container_001",
+  "media_ref": "FIX01_playback.mp4",
+  "duration_seconds": 28.5,
+  "status": {
+    "stage": "ready",
+    "error": null
+  },
+  "pipeline": {
+    "model": "gemini-3.8-flash",
+    "fps": 4,
+    "res": "default",
+    "mode": "static",
+    "prompt_version": "v1",
+    "audio": true
+  },
+  "scene": "kitchen counter",
+  "task": {
+    "name": "prep leftovers for reheating",
+    "declared_intent": {
+      "text": "Lid off the clips but resting loose so it doesn't splatter.",
+      "utterance_id": "u1"
+    },
+    "outcome": "success",
+    "outcome_evidence": "All four latches are released, steam vent is open, and lid is resting loosely over the bowl."
+  },
+  "narration": [
+    {
+      "id": "u1",
+      "start": 0.5,
+      "end": 4.8,
+      "text": "I'm prepping these leftover rice and dal for the microwave. I want the lid off the clips but resting loose so it doesn't splatter.",
+      "mode": "before"
+    },
+    {
+      "id": "u2",
+      "start": 5.5,
+      "end": 8.8,
+      "text": "Unclipping the first latch, second, and third one.",
+      "mode": "during"
+    },
+    {
+      "id": "u3",
+      "start": 10.2,
+      "end": 12.6,
+      "text": "Wait, this fourth latch is really stuck.",
+      "mode": "during"
+    },
+    {
+      "id": "u4",
+      "start": 14.1,
+      "end": 17.5,
+      "text": "Pressing down on the lid to take tension off the clip... there, popped it open.",
+      "mode": "during"
+    },
+    {
+      "id": "u5",
+      "start": 18.5,
+      "end": 20.2,
+      "text": "Opening the steam vent.",
+      "mode": "during"
+    },
+    {
+      "id": "u6",
+      "start": 23.8,
+      "end": 27.2,
+      "text": "A sealed lid warps in the microwave, so we leave it resting loose.",
+      "mode": "after"
+    }
+  ],
+  "actions": [
+    {
+      "id": "action-01",
+      "start": 5.2,
+      "end": 9.6,
+      "observed_action": "Unclips latches 1, 2, and 3 around the rim.",
+      "instruction": "Unclip latches 1, 2, and 3 on the container.",
+      "visual_evidence": "Both hands disengage latches 1, 2, and 3 in sequence with visible motion.",
+      "stated_reason": null,
+      "inferred_reason": "Releases side locks to allow opening.",
+      "why_matters": false,
+      "attempt": "first",
+      "outcome": "success",
+      "uncertainty": [],
+      "review_status": "accepted",
+      "human_corrections": []
+    },
+    {
+      "id": "action-02",
+      "start": 9.8,
+      "end": 13.2,
+      "observed_action": "Pulls upwards on latch 4, but it binds and does not open.",
+      "instruction": "Pull upward on latch 4.",
+      "visual_evidence": "Right index finger pulls upward on latch 4; latch flexes but fails to disengage from the rim.",
+      "stated_reason": {
+        "text": "Wait, this fourth latch is really stuck.",
+        "utterance_id": "u3",
+        "source": "narration"
+      },
+      "inferred_reason": "Internal vacuum or lid rim pressure is pinching the latch mechanism.",
+      "why_matters": true,
+      "attempt": "first",
+      "outcome": "failed",
+      "uncertainty": [],
+      "review_status": "accepted",
+      "human_corrections": []
+    },
+    {
+      "id": "action-03",
+      "start": 13.8,
+      "end": 18.0,
+      "observed_action": "Presses left palm down onto center of lid while pulling latch 4 upward.",
+      "instruction": "Press down on the center of the lid to relieve tension, then pull latch 4 upward.",
+      "visual_evidence": "Left hand applies firm downward pressure to the center of the lid, compressing the silicone seal; right hand pulls latch 4, which swings free.",
+      "stated_reason": {
+        "text": "Pressing down on the lid to take tension off the clip... there, popped it open.",
+        "utterance_id": "u4",
+        "source": "narration"
+      },
+      "inferred_reason": "Downward pressure compresses the lid gasket and releases the undercut lip latch.",
+      "why_matters": true,
+      "attempt": "recovery",
+      "outcome": "success",
+      "uncertainty": [],
+      "review_status": "accepted",
+      "human_corrections": []
+    },
+    {
+      "id": "action-04",
+      "start": 18.4,
+      "end": 21.0,
+      "observed_action": "Flips open the silicone steam vent tab on the lid.",
+      "instruction": "Open the silicone steam vent on the lid.",
+      "visual_evidence": "Thumb flips the central circular silicone flap upward to expose the vent aperture.",
+      "stated_reason": null,
+      "inferred_reason": "Prevents pressure buildup inside the container while heating.",
+      "why_matters": true,
+      "attempt": "first",
+      "outcome": "success",
+      "uncertainty": [
+        "Actor did not state why the vent is being opened."
+      ],
+      "review_status": "accepted",
+      "human_corrections": []
+    },
+    {
+      "id": "action-05",
+      "start": 22.0,
+      "end": 26.5,
+      "observed_action": "Lifts the lid completely off the rim and sets it back down loosely askew.",
+      "instruction": "Lift the lid off the rim and place it back on the container loosely unlatched.",
+      "visual_evidence": "Lid is lifted 5 cm above rim breaking contact, rotated approximately 15 degrees, and set back on top.",
+      "stated_reason": {
+        "text": "A sealed lid warps in the microwave, so we leave it resting loose.",
+        "utterance_id": "u6",
+        "source": "narration"
+      },
+      "inferred_reason": "Loose placement allows steam to escape while preventing food splatters in the microwave.",
+      "why_matters": true,
+      "attempt": "first",
+      "outcome": "success",
+      "uncertainty": [],
+      "review_status": "accepted",
+      "human_corrections": []
+    }
+  ],
+  "pending_questions": [
+    {
+      "id": "pq-01",
+      "action_ref": "action-04",
+      "kind": "no_reason",
+      "question": "Why did you open the steam vent before reheating?",
+      "source": "mvp_check"
+    }
+  ],
+  "clarifications": [],
+  "template_check": null,
+  "video_only": null,
+  "human_corrections": []
+}

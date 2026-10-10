@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+:root {
+  --background: #090a0f;
+  --foreground: #f1f5f9;
+  --card: #11141d;
+  --card-foreground: #f1f5f9;
+  --popover: #11141d;
+  --popover-foreground: #f1f5f9;
+  --border: #1e2433;
+  --input: #1e2433;
+  --ring: #22c55e;
+
+  /* Theme tokens: seen (blue), said (orange), why (green, hero), missed (red), info (blue-grey) */
+  --seen: #38bdf8;
+  --seen-muted: #0284c7;
+  --seen-bg: rgba(56, 189, 248, 0.12);
+
+  --said: #fb923c;
+  --said-muted: #ea580c;
+  --said-bg: rgba(251, 146, 60, 0.12);
+
+  --why: #22c55e;
+  --why-muted: #16a34a;
+  --why-bg: rgba(34, 197, 94, 0.15);
+
+  --missed: #ef4444;
+  --missed-muted: #dc2626;
+  --missed-bg: rgba(239, 68, 68, 0.12);
+
+  --info: #94a3b8;
+  --info-muted: #64748b;
+  --info-bg: rgba(148, 163, 184, 0.12);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-seen: var(--seen);
+  --color-seen-muted: var(--seen-muted);
+  --color-seen-bg: var(--seen-bg);
+
+  --color-said: var(--said);
+  --color-said-muted: var(--said-muted);
+  --color-said-bg: var(--said-bg);
+
+  --color-why: var(--why);
+  --color-why-muted: var(--why-muted);
+  --color-why-bg: var(--why-bg);
+
+  --color-missed: var(--missed);
+  --color-missed-muted: var(--missed-muted);
+  --color-missed-bg: var(--missed-bg);
+
+  --color-info: var(--info);
+  --color-info-muted: var(--info-muted);
+  --color-info-bg: var(--info-bg);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
