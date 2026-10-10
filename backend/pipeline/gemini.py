@@ -47,7 +47,8 @@ class KeyPool:
         keys = [k.strip() for k in (raw or os.environ.get("GEMINI_API_KEY", "")).split(",") if k.strip()]
         if not keys:
             raise GeminiError("The server has no Gemini API key configured.")
-        self.clients = [genai.Client(api_key=k) for k in keys]
+        # 90 s per request: a hung call fails with a clear message instead of spinning forever
+        self.clients = [genai.Client(api_key=k, http_options=types.HttpOptions(timeout=90_000)) for k in keys]
         self._next = 0
         self._lock = threading.Lock()
 

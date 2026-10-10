@@ -135,7 +135,7 @@ def api():
         allow_origin_regex=r"https://.*\.vercel\.app",
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"],
+        expose_headers=["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
     )
 
     def get_record(episode_id: str) -> dict:
@@ -187,13 +187,87 @@ def api():
         process_episode.spawn(episode_id)
         return {"id": episode_id, "bytes": size, "receive_s": round(receive_s, 2)}
 
+    def public(record: dict) -> dict:
+        from pipeline.corrections import apply
+
+        out = {k: record.get(k) for k in ("id", "status", "stage", "error", "created_at", "duration", "timings", "template_id")}
+        out["saved"] = bool(record.get("saved"))
+        out["label"] = record.get("label")
+        model_output = record.get("model_output")
+        out["episode"] = apply(model_output, record.get("corrections") or []) if model_output else None
+        out["video_only"] = record.get("video_only_output")
+        return out
+
+    @web.get("/episodes")
+    def list_episodes(limit: int = 20, saved: bool = False):
+        rows = []
+        for key, record in episodes.items():
+            if saved and not record.get("saved"):
+                continue
+            task = (record.get("model_output") or {}).get("task") or {}
+            rows.append({"id": key, "status": record.get("status"), "created_at": record.get("created_at"),
+                         "saved": bool(record.get("saved")), "label": record.get("label"),
+                         "task": task.get("name"), "duration": record.get("duration")})
+        rows.sort(key=lambda r: (not r["saved"], -(r["created_at"] or 0)))
+        return rows[: max(1, min(limit, 100))]
+
     @web.get("/episodes/{episode_id}")
     def get_episode(episode_id: str):
+        return public(get_record(episode_id))
+
+    @web.patch("/episodes/{episode_id}")
+    def correct_episode(episode_id: str, body: dict):
+        from pipeline.corrections import CorrectionError, apply, validate
+
         record = get_record(episode_id)
-        public = {k: record.get(k) for k in ("id", "status", "stage", "error", "created_at", "duration", "timings", "template_id")}
-        public["episode"] = record.get("model_output")  # corrections applied on read: next step
-        public["video_only"] = record.get("video_only_output")
-        return public
+        if record.get("status") != "ready":
+            raise HTTPException(409, "This episode isn't ready to edit yet.")
+        changes = body.get("changes")
+        if not isinstance(changes, list) or not changes:
+            raise HTTPException(422, 'Send {"changes": [{"target", "field", "value"}]}')
+        current = apply(record["model_output"], record.get("corrections") or [])
+        try:
+            stored = validate(current, changes)
+        except CorrectionError as e:
+            raise HTTPException(422, str(e))
+        record = update(episode_id, corrections=(record.get("corrections") or []) + stored)
+        return public(record)
+
+    @web.post("/episodes/{episode_id}/reset")
+    def reset_episode(episode_id: str):
+        """Saved (demo) episodes only: drop human corrections; the model output is untouched."""
+        record = get_record(episode_id)
+        if not record.get("saved"):
+            raise HTTPException(403, "Only saved episodes can be reset.")
+        return public(update(episode_id, corrections=[]))
+
+    @web.get("/episodes/{episode_id}/export")
+    def export_episode(episode_id: str, format: str = "json"):
+        import io
+        import json
+        import zipfile
+
+        from fastapi.responses import JSONResponse, StreamingResponse
+
+        record = get_record(episode_id)
+        episode = public(record)["episode"]
+        if episode is None:
+            raise HTTPException(409, "This episode isn't ready to export yet.")
+        name = f"voicepraxis-{episode_id}"
+        if format == "json":
+            return JSONResponse(episode, headers={"Content-Disposition": f'attachment; filename="{name}.json"'})
+        if format != "zip":
+            raise HTTPException(422, "format must be json or zip")
+        video = local_copy(f"videos/{episode_id}/playback.mp4")
+        if video is None:
+            raise HTTPException(404, "Video not available")
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:
+            z.writestr("episode.json", json.dumps(episode, indent=2))
+            z.write(video, "episode.mp4")
+        buf.seek(0)
+        return StreamingResponse(buf, media_type="application/zip",
+                                 headers={"Content-Disposition": f'attachment; filename="{name}.zip"'})
 
     @web.api_route("/episodes/{episode_id}/video", methods=["GET", "HEAD"])
     def get_video(episode_id: str):
