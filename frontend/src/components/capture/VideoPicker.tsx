@@ -55,6 +55,9 @@ export function VideoPicker({
         templateId || null,
         purpose,
       );
+      // This page stays mounted in the background after navigating; leave it ready for the next take.
+      setProgress(null);
+      setLastFile(null);
       onUploaded(r.id);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";

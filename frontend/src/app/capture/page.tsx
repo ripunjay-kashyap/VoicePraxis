@@ -69,6 +69,10 @@ function CapturePageContent() {
     setUploadProgress({ percent: 0, loaded: 0, total: selectedFile.size });
     try {
       const result = await uploadEpisode(selectedFile, setUploadProgress);
+      // This page stays mounted in the background after navigating; leave it ready for the next recording.
+      setIsUploading(false);
+      setUploadProgress(null);
+      setSelectedFile(null);
       router.push(`/e/${result.id}${forceMock ? "?mock=1" : ""}`);
     } catch (err: unknown) {
       setIsUploading(false);
