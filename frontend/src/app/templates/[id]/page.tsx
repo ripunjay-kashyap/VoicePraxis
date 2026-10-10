@@ -3,7 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import { PageTitle } from "@/components/site/SiteHeader";
 import { VideoPicker } from "@/components/capture/VideoPicker";
 import { TemplateDetail, deleteTemplate, fetchTemplate } from "@/lib/api";
 
@@ -23,21 +24,23 @@ function TemplateDetailContent() {
   };
 
   return (
-    <div className="flex-1 max-w-3xl w-full mx-auto p-4 sm:p-6 space-y-6">
-      <header className="flex items-center justify-between gap-3 border-b border-slate-200 pb-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href="/templates" className="text-sm text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 shrink-0">
-            <ArrowLeft className="w-4 h-4" /> Templates
-          </Link>
-          <div className="h-4 w-px bg-slate-200" />
-          <h1 className="text-base font-semibold text-slate-900 truncate">{template?.name ?? "Template"}</h1>
-        </div>
-        {template && (
-          <button type="button" onClick={remove} className="text-xs text-slate-500 hover:text-red-600 inline-flex items-center gap-1 cursor-pointer">
-            <Trash2 className="w-3.5 h-3.5" /> Delete
-          </button>
-        )}
-      </header>
+    <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-6">
+      <PageTitle
+        back={{ href: "/templates", label: "Template check" }}
+        title={template?.name ?? "Reference"}
+        subtitle={template ? `${template.steps.length} steps · confirmed reference` : undefined}
+        actions={
+          template ? (
+            <button
+              type="button"
+              onClick={remove}
+              className="h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 hover:text-red-700 hover:border-red-200 inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" /> Delete
+            </button>
+          ) : null
+        }
+      />
 
       {template === undefined && <p className="text-sm text-slate-500">Loading…</p>}
       {template === null && (
@@ -48,11 +51,11 @@ function TemplateDetailContent() {
 
       {template && (
         <>
-          <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 space-y-4 shadow-sm">
             <div>
-              <h2 className="text-sm font-semibold text-slate-900">Check a take</h2>
+              <h2 className="text-base font-semibold text-slate-900">Check a take</h2>
               <p className="text-sm text-slate-500">
-                Record the same task. Each step is checked: was it done, was it said, and was the reason given.
+                Record or upload the same task. Each reference step is checked: was it done, and was it said.
               </p>
             </div>
             <VideoPicker
@@ -63,7 +66,7 @@ function TemplateDetailContent() {
             />
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
             <h2 className="px-4 sm:px-5 py-3 border-b border-slate-200 text-sm font-semibold text-slate-900">
               Reference steps ({template.steps.length})
             </h2>
@@ -89,7 +92,7 @@ function TemplateDetailContent() {
           </section>
         </>
       )}
-    </div>
+    </main>
   );
 }
 

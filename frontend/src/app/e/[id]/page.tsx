@@ -28,11 +28,12 @@ import { SubtaskStrip } from "@/components/episode/SubtaskStrip";
 import { ScriptView } from "@/components/episode/ScriptView";
 import { ExportModal } from "@/components/episode/ExportModal";
 import { Button } from "@/components/ui/button";
+import { PageTitle } from "@/components/site/SiteHeader";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
   HelpCircle,
-  FileCode,
+  Download,
   Mic,
   RotateCcw,
   AlertTriangle,
@@ -120,20 +121,15 @@ function EpisodeShellPageContent() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center max-w-lg w-full mx-auto p-4 sm:p-6 min-h-[60vh]">
         <div className="w-full rounded-2xl border border-red-200 bg-white p-6 shadow-sm text-center space-y-5">
-          <div className="w-12 h-12 rounded-xl bg-red-500 border border-red-300 flex items-center justify-center text-red-700 mx-auto">
+          <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center mx-auto">
             <AlertTriangle className="w-6 h-6 text-red-700" />
           </div>
 
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Episode Load Failed</h2>
-            <p className="text-xs font-mono text-slate-500 mt-1">
-              ID: <span className="text-slate-800">{episodeId}</span>
-            </p>
+            <h2 className="text-lg font-semibold text-slate-900">We couldn&rsquo;t open this recording</h2>
+            <p className="text-sm text-slate-500 mt-1">Check the connection and try again.</p>
           </div>
 
-          <div className="p-3.5 rounded-lg border border-red-200 bg-red-50 text-xs text-red-700 font-mono text-left">
-            {fetchError}
-          </div>
 
           <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
             <Button
@@ -149,11 +145,11 @@ function EpisodeShellPageContent() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/capture")}
               className="flex-1 gap-1.5 cursor-pointer text-xs border-slate-200"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              Back to capture
+              New recording
             </Button>
             <Button
               variant="why"
@@ -174,11 +170,11 @@ function EpisodeShellPageContent() {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3 text-slate-500">
-          <div className="w-8 h-8 border-2 border-emerald-300 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin" />
           <p className="text-sm">Loading…</p>
           {isSlowLoading && (
-            <p className="text-xs text-amber-700 font-mono animate-pulse">
-              Waking the server (first load may take ~5–10 s)...
+            <p className="text-xs text-slate-500">
+              Starting up, this can take a few seconds…
             </p>
           )}
         </div>
@@ -282,56 +278,41 @@ function EpisodeShellPageContent() {
   );
 
   return (
-    <div className="flex-1 flex flex-col max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 space-y-4 sm:space-y-6">
-      {/* Top Header Bar */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push("/")}
-            className="gap-1.5 text-slate-500 hover:text-slate-900 cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Capture
-          </Button>
-
-          <div className="h-4 w-px bg-slate-100" />
-
-          <div>
-            <h1 className="text-sm sm:text-base font-semibold text-slate-900">Review</h1>
-            <p className="text-xs text-slate-500 capitalize">
-              {episode.scene || "Recording"} · {formatTimestamp(episode.duration_seconds)}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {forceMock && (
-            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 font-mono text-xs">
-              Mock data (?mock=1)
-            </Badge>
-          )}
-
-
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setIsExportOpen(true)}
-            className="gap-1.5 text-xs font-mono cursor-pointer"
-          >
-            <FileCode className="w-3.5 h-3.5 text-emerald-700" />
-            Export
-          </Button>
-        </div>
-      </header>
+    <main className="flex-1 flex flex-col max-w-7xl w-full mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-4 sm:space-y-6">
+      {/* Title row */}
+      <PageTitle
+        back={checkMode && episode.template_check ? { href: `/templates/${episode.template_check.template_id}`, label: "Reference" } : { href: "/capture", label: "New recording" }}
+        title={<span className="capitalize">{episode.task.name || "Review"}</span>}
+        subtitle={
+          <span className="capitalize">
+            {[episode.scene, formatTimestamp(episode.duration_seconds)].filter(Boolean).join(" \u00b7 ")}
+            {" \u00b7 "}
+            <span className={episode.task.outcome === "success" ? "text-emerald-700" : episode.task.outcome === "failed" ? "text-red-700" : "text-amber-700"}>
+              {episode.task.outcome === "success" ? "Completed" : episode.task.outcome === "failed" ? "Not completed" : "Outcome unclear"}
+            </span>
+          </span>
+        }
+        actions={
+          <>
+            {forceMock && (
+              <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-xs">
+                Sample data
+              </Badge>
+            )}
+            <Button variant="secondary" size="sm" onClick={() => setIsExportOpen(true)} className="gap-1.5 h-9 px-3.5 text-sm cursor-pointer">
+              <Download className="w-4 h-4 text-slate-500" />
+              Export
+            </Button>
+          </>
+        }
+      />
 
       {/* Saved Episode Banner (Rule 3) */}
       {episode.saved && (
-        <div className="rounded-xl border border-emerald-200     p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-slate-100/70 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
           <div className="flex items-center gap-2.5">
-            <span className="text-xs sm:text-sm font-semibold text-emerald-800">
-              {episode.label || "Saved episode · bike tube test clip (YouTube)"}
+            <span className="text-sm text-slate-700"><span className="font-semibold text-slate-900">Saved example</span> · 
+              {(episode.label || "Saved episode · bike tube test clip (YouTube)").replace(/^Saved episode · /, "")}
             </span>
           </div>
 
@@ -340,7 +321,7 @@ function EpisodeShellPageContent() {
             size="sm"
             disabled={isResetting}
             onClick={handleResetEdits}
-            className="h-7 text-xs font-mono border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 gap-1.5 cursor-pointer"
+            className="h-8 text-xs border-slate-200 bg-white hover:bg-slate-50 text-slate-700 gap-1.5 cursor-pointer"
           >
             {isResetting ? (
               <>
@@ -360,19 +341,10 @@ function EpisodeShellPageContent() {
       {/* Template mode: the comparison comes first */}
       {flags?.TEMPLATES && checkMode && templatePanel}
 
-      {/* Task Intent & Outcome Banner */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs uppercase font-medium tracking-wider text-slate-500">
-            <span>Task</span>
-            <span className="text-slate-400">·</span>
-            <span className={episode.task.outcome === "success" ? "text-emerald-700" : episode.task.outcome === "failed" ? "text-red-700" : "text-amber-700"}>
-              {episode.task.outcome === "success" ? "Completed" : episode.task.outcome === "failed" ? "Not completed" : "Outcome unclear"}
-            </span>
-          </div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 capitalize">
-            {episode.task.name}
-          </h2>
+      {/* Task summary */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm">
+        <div className="space-y-1.5">
+          <p className="text-xs uppercase font-semibold tracking-wider text-slate-400">Summary</p>
           {episode.pipeline?.trim && (
             <p className="text-xs text-slate-500">
               Trimmed to the task: {formatTimestamp(episode.pipeline.trim.start)}–{formatTimestamp(episode.pipeline.trim.end)} of the{" "}
@@ -386,7 +358,7 @@ function EpisodeShellPageContent() {
             </p>
           )}
           {episode.task.summary && (
-            <p className="text-sm text-slate-600 leading-relaxed max-w-3xl">{episode.task.summary}</p>
+            <p className="text-[15px] text-slate-800 leading-relaxed max-w-3xl">{episode.task.summary}</p>
           )}
           {episode.task.declared_intent && (
             <p className="text-xs text-orange-700 flex items-center gap-1.5 pt-0.5">
@@ -438,16 +410,16 @@ function EpisodeShellPageContent() {
 
           {/* Pending Questions Card */}
           {episode.pending_questions && episode.pending_questions.length > 0 && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 space-y-2">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs uppercase font-medium text-emerald-700 font-bold">
-                  <HelpCircle className="w-4 h-4 text-emerald-700" />
+                <span className="flex items-center gap-1.5 text-xs uppercase tracking-wider font-semibold text-amber-800">
+                  <HelpCircle className="w-4 h-4 text-amber-700" />
                   Questions for the person
                 </span>
-                <span className="text-xs text-emerald-700">{episode.pending_questions.length}</span>
+                <span className="text-xs text-amber-800">{episode.pending_questions.length}</span>
               </div>
               {episode.pending_questions.map((pq) => (
-                <div key={pq.id} className="text-xs space-y-1 bg-white p-3 rounded-lg border border-emerald-200">
+                <div key={pq.id} className="text-sm space-y-1 bg-white p-3 rounded-lg border border-amber-100">
                   <p className="text-slate-800 font-medium">&ldquo;{pq.question}&rdquo;</p>
                   <p className="text-xs text-slate-500">About {stepLabel(pq.action_ref).toLowerCase()}</p>
                 </div>
@@ -513,7 +485,7 @@ function EpisodeShellPageContent() {
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}
       />
-    </div>
+    </main>
   );
 }
 

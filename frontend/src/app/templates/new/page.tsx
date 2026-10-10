@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Trash2, Loader2 } from "lucide-react";
+import { Trash2, Loader2 } from "lucide-react";
+import { PageTitle } from "@/components/site/SiteHeader";
 import { VideoPicker } from "@/components/capture/VideoPicker";
 import { ProcessingView } from "@/components/episode/ProcessingView";
 import { ProcessingStage } from "@/lib/episode";
@@ -71,38 +71,50 @@ export default function NewTemplatePage() {
   };
 
   return (
-    <div className="flex-1 max-w-3xl w-full mx-auto p-4 sm:p-6 space-y-6">
-      <header className="flex items-center gap-3 border-b border-slate-200 pb-4">
-        <Link href="/templates" className="text-sm text-slate-500 hover:text-slate-900 inline-flex items-center gap-1">
-          <ArrowLeft className="w-4 h-4" /> Templates
-        </Link>
-        <div className="h-4 w-px bg-slate-200" />
-        <h1 className="text-base font-semibold text-slate-900">New reference</h1>
-        {episodeId && (
-          <button type="button" onClick={startOver} className="ml-auto text-xs text-slate-500 hover:text-slate-900 cursor-pointer">
-            Start over
-          </button>
-        )}
-      </header>
+    <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-6">
+      <PageTitle
+        back={{ href: "/templates", label: "Template check" }}
+        title="New reference"
+        subtitle="The task done once, the right way. It becomes the checklist every take is compared with."
+        actions={
+          episodeId ? (
+            <button
+              type="button"
+              onClick={startOver}
+              className="h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+            >
+              Start over
+            </button>
+          ) : null
+        }
+      />
 
-      <ol className="flex gap-4 text-xs text-slate-500">
-        {["Upload the reference", "Confirm the steps", "Check takes"].map((label, i) => {
-          const active = (i === 0 && !episodeId) || (i === 1 && episodeId);
+      <ol className="flex items-center gap-2 sm:gap-3 text-sm">
+        {["Upload", "Confirm the steps", "Check takes"].map((label, i) => {
+          const at = !episodeId ? 0 : 1;
+          const state = i < at ? "done" : i === at ? "active" : "todo";
           return (
-            <li key={label} className={active ? "text-slate-900 font-medium" : ""}>
-              {i + 1}. {label}
+            <li key={label} className="flex items-center gap-2 sm:gap-3">
+              {i > 0 && <span className="w-6 sm:w-10 h-px bg-slate-300" />}
+              <span
+                className={`w-6 h-6 rounded-full text-xs font-semibold flex items-center justify-center ${
+                  state === "active" ? "bg-slate-900 text-white" : state === "done" ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500"
+                }`}
+              >
+                {i + 1}
+              </span>
+              <span className={state === "active" ? "text-slate-900 font-medium" : "text-slate-500 hidden sm:inline"}>{label}</span>
             </li>
           );
         })}
       </ol>
 
       {!episodeId && (
-        <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 space-y-4 shadow-sm">
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">Upload the right way</h2>
-            <p className="text-sm text-slate-500">
-              A video of the task done once, correctly, with each step said out loud. It becomes the checklist
-              every take is compared with.
+            <h2 className="text-base font-semibold text-slate-900">Upload the reference video</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Say each step out loud as you do it. Reference videos are never trimmed.
             </p>
           </div>
           <VideoPicker onUploaded={setEpisodeId} purpose="reference" allowRecord={false} uploadLabel="Upload the reference video" />
@@ -115,7 +127,7 @@ export default function NewTemplatePage() {
       {episodeId && !episode && <p className="text-sm text-slate-500">Starting…</p>}
 
       {steps && (
-        <section className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
           <div className="p-4 sm:p-5 border-b border-slate-200 space-y-3">
             <div>
               <h2 className="text-sm font-semibold text-slate-900">Confirm the steps</h2>
@@ -181,13 +193,13 @@ export default function NewTemplatePage() {
               type="button"
               onClick={confirm}
               disabled={saving}
-              className="h-10 px-5 rounded-md bg-slate-900 text-white text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="h-10 px-5 rounded-lg bg-slate-900 text-white text-sm font-medium inline-flex items-center gap-2 hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />} Confirm template
             </button>
           </div>
         </section>
       )}
-    </div>
+    </main>
   );
 }

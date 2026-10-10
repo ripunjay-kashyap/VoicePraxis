@@ -1,427 +1,406 @@
-"use client";
-
-import * as React from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { QRCodeSVG } from "qrcode.react";
+import dynamic from "next/dynamic";
 import {
-  uploadEpisode,
-  isMockMode,
-  UploadProgress,
-  getApiBase,
-  fetchSavedEpisodes,
-  SavedEpisodeListItem,
-  fetchFlags,
-} from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import {
-  ListChecks,
-  Camera,
-  Upload,
-  AlertCircle,
-  Sparkles,
   ArrowRight,
-  FileVideo,
-  QrCode,
-  FileCheck2,
-  Smartphone,
-  RotateCcw,
+  Mic,
+  Eye,
+  ClipboardCheck,
+  Video,
+  Download,
+  PencilLine,
+  Columns2,
+  Layers,
+  Scissors,
+  Check,
 } from "lucide-react";
+import { SiteFooter } from "@/components/site/SiteHeader";
+import { PhoneQr } from "@/components/landing/PhoneQr";
 
-// Backend limit: 200 MB and up to 90 seconds (P0.5)
-const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024;
+const HeroScene = dynamic(() => import("@/components/landing/HeroScene").then((m) => m.HeroScene));
+const CaseStudyScene = dynamic(() => import("@/components/landing/CaseStudyScene").then((m) => m.CaseStudyScene));
 
-function CapturePageContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const forceMock = isMockMode(searchParams.get("mock"));
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{children}</p>;
+}
 
-  const recordInputRef = React.useRef<HTMLInputElement>(null);
-  const uploadInputRef = React.useRef<HTMLInputElement>(null);
-
-  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
-  const [fileError, setFileError] = React.useState<string | null>(null);
-  const [isUploading, setIsUploading] = React.useState(false);
-  const [uploadProgress, setUploadProgress] = React.useState<UploadProgress | null>(null);
-  const [isDragging, setIsDragging] = React.useState(false);
-  const [savedEpisode, setSavedEpisode] = React.useState<SavedEpisodeListItem | null>(null);
-
-  const [currentUrl] = React.useState<string>(() => {
-    return typeof window !== "undefined" ? window.location.href : "https://voicepraxis.vercel.app";
-  });
-
-  const apiBase = getApiBase();
-
-  // Templates (feature): show the Template check entry when switched on
-  const [templatesOn, setTemplatesOn] = React.useState(false);
-  React.useEffect(() => {
-    fetchFlags().then((f) => setTemplatesOn(Boolean(f.TEMPLATES)));
-  }, []);
-
-  // Load real saved episode from server (P0.3)
-  React.useEffect(() => {
-    fetchSavedEpisodes().then((list) => {
-      if (list && list.length > 0) {
-        setSavedEpisode(list[0]);
-      }
-    });
-  }, []);
-
-  // Validate selected file (mime type and size)
-  const validateFile = (file: File): boolean => {
-    setFileError(null);
-
-    const isVideoType =
-      file.type.startsWith("video/") ||
-      /\.(mp4|mov|webm|m4v|mkv|avi)$/i.test(file.name);
-
-    if (!isVideoType) {
-      setFileError("Invalid video format. Please select an MP4, MOV, or WebM file.");
-      return false;
-    }
-
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-      setFileError(`File exceeds limit (${sizeMb} MB). Maximum size is 200 MB (up to 90 s).`);
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && validateFile(file)) {
-      setSelectedFile(file);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file && validateFile(file)) {
-      setSelectedFile(file);
-    }
-  };
-
-  const startUpload = async () => {
-    if (!selectedFile) return;
-
-    setIsUploading(true);
-    setFileError(null);
-    setUploadProgress({ percent: 0, loaded: 0, total: selectedFile.size });
-
-    try {
-      const result = await uploadEpisode(selectedFile, (progress) => {
-        setUploadProgress(progress);
-      });
-
-      // Navigate to the episode page
-      const mockQuery = forceMock ? "?mock=1" : "";
-      router.push(`/e/${result.id}${mockQuery}`);
-    } catch (err: unknown) {
-      setIsUploading(false);
-      // Keep selectedFile so user can retry directly
-      const errorMessage =
-        err instanceof Error ? err.message : "Upload failed. Please check network and try again.";
-      setFileError(errorMessage);
-    }
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024 * 1024) {
-      return `${(bytes / 1024).toFixed(1)} KB`;
-    }
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
+function Section({ id, children, className = "" }: { id?: string; children: React.ReactNode; className?: string }) {
   return (
-    <main className="flex-1 flex flex-col justify-between max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-      {/* Hidden file inputs: one with capture="environment" for phone camera, one standard */}
-      <input
-        ref={recordInputRef}
-        type="file"
-        accept="video/*"
-        capture="environment"
-        className="hidden"
-        onChange={handleFileChange}
-      />
-      <input
-        ref={uploadInputRef}
-        type="file"
-        accept="video/*"
-        className="hidden"
-        onChange={handleFileChange}
-      />
-
-      {/* Header */}
-      <header className="flex items-center justify-between border-b border-slate-200 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center text-white font-semibold text-sm">
-            VP
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight text-slate-900 flex items-center gap-2">
-              VoicePraxis
-            </h1>
-            <p className="text-xs text-slate-500">
-              Task-level annotation from narrated video
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {templatesOn && (
-            <Link
-              href="/templates"
-              className="h-9 px-3 rounded-md border border-slate-200 bg-white text-sm text-slate-800 font-medium inline-flex items-center gap-1.5 hover:bg-slate-50"
-            >
-              <ListChecks className="w-4 h-4 text-slate-500" />
-              Template check
-            </Link>
-          )}
-          {forceMock ? (
-            <Badge variant="outline" className="text-[11px] gap-1.5 py-1 text-orange-700 border-orange-200 bg-orange-50 font-mono">
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-              Mock data
-            </Badge>
-          ) : apiBase ? null : (
-            <Badge variant="missed" className="text-[11px] gap-1.5 py-1">
-              Backend Not Configured
-            </Badge>
-          )}
-        </div>
-      </header>
-
-      {/* Hero Guidance Card & Saved Episode Link */}
-      <div className="rounded-xl border border-slate-200     p-4 sm:p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs uppercase font-medium tracking-wider text-emerald-700">
-              <Sparkles className="w-3.5 h-3.5" />
-              How to record
-            </div>
-            <p className="text-sm font-medium text-slate-800">
-              &ldquo;Do any small task with these. Talk as you go: what you&rsquo;re doing and why.&rdquo;
-            </p>
-            <p className="text-xs text-slate-500">
-              State intent before starting, explain decisions while acting, and narrate recoveries.
-            </p>
-          </div>
-
-          {/* Real Saved Episode Link (P0.3) */}
-          {savedEpisode && (
-            <button
-              type="button"
-              onClick={() => router.push(`/e/${savedEpisode.id}`)}
-              className="shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-50 border border-emerald-200 hover:bg-emerald-50 text-emerald-700 transition-all cursor-pointer text-xs font-mono"
-            >
-              <FileCheck2 className="w-4 h-4 text-emerald-700" />
-              <div className="text-left">
-                <div className="font-semibold text-emerald-800">{savedEpisode.label}</div>
-                <div className="text-[10px] text-emerald-700">Task: {savedEpisode.task}</div>
-              </div>
-              <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Main Grid: Capture Area + Desktop QR Code */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Big Record & Upload Actions */}
-        <div className="lg:col-span-8 space-y-4">
-          <Card className="border-slate-200 bg-white shadow-sm relative overflow-hidden">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center justify-between">
-                <span>New recording</span>
-              </CardTitle>
-              <CardDescription>
-                Record on this device, or upload a clip up to 90 seconds.
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent className="space-y-6 pt-2">
-              {/* Big Record and Upload Actions */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <Button
-                  type="button"
-                  variant="why"
-                  size="lg"
-                  className="h-20 flex-col items-center justify-center gap-1.5 rounded-xl cursor-pointer"
-                  onClick={() => recordInputRef.current?.click()}
-                  disabled={isUploading}
-                >
-                  <div className="flex items-center gap-2 text-base font-bold">
-                    <Camera className="w-5 h-5" />
-                    Record a task
-                  </div>
-                  <span className="text-xs font-normal text-slate-300">
-                    Opens the phone camera
-                  </span>
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="lg"
-                  className="h-20 flex-col items-center justify-center gap-1.5 rounded-xl border-slate-200 hover:border-slate-200 cursor-pointer"
-                  onClick={() => uploadInputRef.current?.click()}
-                  disabled={isUploading}
-                >
-                  <div className="flex items-center gap-2 text-base font-semibold text-slate-800">
-                    <Upload className="w-5 h-5 text-sky-700" />
-                    Upload Video File
-                  </div>
-                </Button>
-              </div>
-
-              {/* Drag and Drop Zone */}
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragging(true);
-                }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-xl p-6 sm:p-8 text-center transition-all ${
-                  isDragging
-                    ? "border-emerald-300 bg-emerald-50"
-                    : "border-slate-200 bg-white hover:border-slate-200"
-                }`}
-              >
-                <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 mb-3">
-                  <FileVideo className="w-6 h-6 text-sky-700" />
-                </div>
-                <p className="text-sm font-medium text-slate-800 mb-1">
-                  {selectedFile ? selectedFile.name : "Or drag a video here"}
-                </p>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  {selectedFile ? (
-                    <span className="text-emerald-700 font-mono font-medium">
-                      {formatFileSize(selectedFile.size)} · Ready to upload
-                    </span>
-                  ) : (
-                    null
-                  )}
-                </p>
-              </div>
-
-              {/* Validation Error Message */}
-              {fileError && (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-3.5 text-xs text-red-700 flex items-start justify-between gap-2.5">
-                  <div className="flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-red-800">Upload Issue</p>
-                      <p>{fileError}</p>
-                    </div>
-                  </div>
-                  {selectedFile && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={startUpload}
-                      className="shrink-0 h-7 text-xs gap-1 border-red-200 bg-red-50 text-red-800 hover:bg-red-50 cursor-pointer"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      Retry
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {/* Upload Progress Bar with XHR Progress */}
-              {isUploading && uploadProgress && (
-                <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-medium text-slate-800 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                      Uploading demonstration clip...
-                    </span>
-                    <span className="font-mono text-emerald-700 font-semibold">
-                      {uploadProgress.percent}%
-                    </span>
-                  </div>
-                  <Progress value={uploadProgress.percent} />
-                  <div className="flex justify-between text-[11px] font-mono text-slate-500">
-                    <span>{formatFileSize(uploadProgress.loaded)}</span>
-                    <span>{formatFileSize(uploadProgress.total)}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Upload Confirmation Action */}
-              {selectedFile && !isUploading && (
-                <div className="pt-2 flex items-center justify-between border-t border-slate-200">
-                  <div className="text-xs text-slate-500">
-                    Selected: <span className="font-mono text-slate-800">{selectedFile.name}</span> (
-                    {formatFileSize(selectedFile.size)})
-                  </div>
-                  <Button
-                    type="button"
-                    variant="why"
-                    onClick={startUpload}
-                    className="gap-2 cursor-pointer"
-                  >
-                    Ingest &amp; Analyze
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right Column: Desktop QR Code */}
-        <div className="lg:col-span-4 space-y-4">
-          <Card className="border-slate-200 bg-white p-5 shadow-sm hidden lg:block text-center">
-            <div className="flex items-center justify-center gap-2 text-xs uppercase font-medium text-slate-500 mb-3">
-              <QrCode className="w-4 h-4 text-emerald-700" />
-              <span>Record from Phone</span>
-            </div>
-
-            <div className="bg-white p-3 rounded-xl inline-block mx-auto shadow-sm">
-              <QRCodeSVG
-                value={currentUrl}
-                size={160}
-                bgColor="#ffffff"
-                fgColor="#090a0f"
-                level="M"
-              />
-            </div>
-
-            <div className="mt-3.5 space-y-1">
-              <p className="text-xs font-semibold text-slate-800 flex items-center justify-center gap-1.5">
-                <Smartphone className="w-3.5 h-3.5 text-sky-700" />
-                <span>Record on your phone</span>
-              </p>
-              <p className="text-[11px] text-slate-500 leading-relaxed max-w-xs mx-auto">
-                Scan to open this page on your phone.
-              </p>
-            </div>
-          </Card>
-        </div>
-      </div>
-    </main>
+    <section id={id} className={`scroll-mt-16 py-16 sm:py-24 ${className}`}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">{children}</div>
+    </section>
   );
 }
 
-export default function Page() {
+function LegendDot({ color, label }: { color: string; label: string }) {
   return (
-    <React.Suspense
-      fallback={
-        <div className="flex-1 flex items-center justify-center min-h-[60vh] text-slate-500 font-mono text-sm">
-          Loading capture...
-        </div>
-      }
-    >
-      <CapturePageContent />
-    </React.Suspense>
+    <span className="inline-flex items-center gap-1.5">
+      <span className="w-2 h-2 rounded-full" style={{ background: color }} />
+      {label}
+    </span>
+  );
+}
+
+const STEPS = [
+  {
+    icon: Video,
+    title: "Record and talk",
+    body: "Do the task on a phone or head-cam and say what you're doing and why. Say “capture” when you're ready and “finish” when you're done.",
+  },
+  {
+    icon: Mic,
+    title: "We listen, then watch",
+    body: "Speech is transcribed word by word. The video is then read alongside it to find the steps, the sub-goals and the reasons.",
+  },
+  {
+    icon: ClipboardCheck,
+    title: "Review and export",
+    body: "Each step shows what was seen, what was said and what was guessed. Correct anything, then export the episode as JSON.",
+  },
+];
+
+const RESULTS = [
+  { value: "≈ 33 s", label: "From upload to a reviewable episode", note: "Median for a 35 s clip, 32 runs" },
+  { value: "3 / 4", label: "Missed step caught on the take", note: "Reference matched itself 4 / 4; repeat checks agreed" },
+  { value: "4 of 4", label: "Steps misread by the camera alone", note: "Same clip, same model, without the audio" },
+  { value: "≈ $0.30", label: "Per hour of video to capture the why", note: "Speech-to-text only; vision labelling already exists" },
+];
+
+const COMPARE = [
+  { who: "Vision-only auto-labelling", from: "The model's reading of the pixels", diff: "Adds the reasons the worker gave; model guesses stay labelled as guesses" },
+  { who: "Third-party narration (Ego4D)", from: "Annotators describe the video afterwards", diff: "No second pass: the language comes from the person doing the task" },
+  { who: "Participant narration (EPIC-KITCHENS)", from: "Workers narrate their own video afterwards", diff: "Narrated live and aligned automatically, word by word" },
+  { who: "Narrated web video (HowTo100M)", from: "Speech discarded when it isn’t visible", diff: "Statements about consequences are kept: they are the reasons" },
+];
+
+export default function Home() {
+  return (
+    <>
+      <main className="flex-1">
+        {/* Hero */}
+        <section className="relative overflow-hidden border-b border-slate-200 bg-white">
+          <div
+            className="absolute inset-0 pointer-events-none opacity-60"
+            style={{
+              backgroundImage: "radial-gradient(circle at 1px 1px, #e2e8f0 1px, transparent 0)",
+              backgroundSize: "24px 24px",
+              maskImage: "linear-gradient(to bottom, black, transparent 85%)",
+            }}
+          />
+          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-14 sm:pt-20 pb-10">
+            <div className="max-w-3xl mx-auto text-center">
+              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                Task-level annotation for robot learning
+              </span>
+              <h1 className="mt-6 text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-slate-900 text-balance leading-[1.05]">
+                The camera shows <span className="text-slate-400">what</span> happened.
+                <br className="hidden sm:block" /> The worker can tell you <span className="underline decoration-orange-300 decoration-4 underline-offset-[6px]">why</span>.
+              </h1>
+              <p className="mt-6 text-base sm:text-lg text-slate-600 leading-relaxed text-pretty max-w-2xl mx-auto">
+                VoicePraxis turns a narrated recording into steps, sub-goals and the reasons behind them, so experts
+                verify labels instead of writing them.
+              </p>
+              <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Link
+                  href="/capture"
+                  className="h-11 px-5 rounded-lg bg-slate-900 text-white text-sm font-medium inline-flex items-center gap-2 hover:bg-slate-800 transition-colors w-full sm:w-auto justify-center"
+                >
+                  Record a task <ArrowRight className="w-4 h-4" />
+                </Link>
+                <a
+                  href="#case"
+                  className="h-11 px-5 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm font-medium inline-flex items-center gap-2 hover:bg-slate-50 transition-colors w-full sm:w-auto justify-center"
+                >
+                  See a real example
+                </a>
+              </div>
+              <p className="mt-5 text-xs text-slate-500">Works on a phone or iPad · about 30 seconds per clip · JSON export</p>
+            </div>
+
+            <div className="mt-12 sm:mt-14 rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_40px_-12px_rgba(15,23,42,0.12)] overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-b border-slate-200 bg-white/70 text-xs text-slate-500">
+                <span className="font-medium text-slate-700">Open a water bottle · 15 s recording</span>
+                <span className="flex items-center gap-4">
+                  <LegendDot color="#2563eb" label="Seen" />
+                  <LegendDot color="#c2410c" label="Said" />
+                  <LegendDot color="#94a3b8" label="Linked" />
+                </span>
+              </div>
+              <HeroScene className="w-full aspect-[4/3] sm:aspect-[16/8] lg:aspect-[16/7]" />
+            </div>
+            <p className="mt-3 text-center text-xs text-slate-400">Real output from a recording made during the build.<span className="hidden lg:inline"> Move the pointer to tilt.</span></p>
+          </div>
+        </section>
+
+        {/* Problem */}
+        <Section>
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+            <div className="space-y-5">
+              <Eyebrow>The problem</Eyebrow>
+              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900 text-balance">
+                Robots need the task and the reason, not just the bounding box.
+              </h2>
+              <p className="text-slate-600 leading-relaxed">
+                Teams record thousands of hours of head-cam video to teach robots everyday tasks. An AI tool pre-labels
+                it and experts check every label. But the purpose of a step is never in the pixels: the camera sees a
+                hand lift a tube, only the worker knows it&rsquo;s pumped up <em>so it doesn&rsquo;t pinch</em>.
+              </p>
+              <p className="text-slate-600 leading-relaxed">
+                Annotators watching later can&rsquo;t recover that intent at any price. They weren&rsquo;t there.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between text-xs">
+                <span className="font-medium text-slate-700">Same clip, same model. Only the audio differs.</span>
+                <span className="text-slate-400">0:17 – 0:24</span>
+              </div>
+              <div className="grid sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-200">
+                <div className="p-5 space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5" /> Camera only
+                  </p>
+                  <p className="text-sm font-medium text-slate-900">Lift the wheel up from the workbench.</p>
+                  <p className="text-sm text-slate-500">
+                    <span className="text-xs uppercase tracking-wider text-slate-400 mr-1.5">Guess</span>
+                    to pull out the inner tube
+                  </p>
+                  <p className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-md px-2.5 py-1.5">
+                    Read the whole task backwards: &ldquo;removes the inner tube and replaces it&rdquo;
+                  </p>
+                </div>
+                <div className="p-5 space-y-3 bg-slate-50/50">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Mic className="w-3.5 h-3.5" /> With narration
+                  </p>
+                  <p className="text-sm font-medium text-slate-900">Pump up the inner tube slightly so it becomes round.</p>
+                  <p className="text-sm text-orange-800">
+                    <span className="text-xs uppercase tracking-wider text-orange-600 mr-1.5">Said</span>
+                    &ldquo;make sure that you pump up the tube slightly just so it becomes round&rdquo;
+                  </p>
+                  <p className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-md px-2.5 py-1.5">
+                    Task: prepares the tire and inner tube for a flat repair
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        {/* How it works */}
+        <Section id="how" className="bg-white border-y border-slate-200">
+          <div className="max-w-2xl">
+            <Eyebrow>How it works</Eyebrow>
+            <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900 text-balance">
+              One recording in. Reviewable annotations out.
+            </h2>
+          </div>
+          <ol className="mt-10 grid md:grid-cols-3 gap-4">
+            {STEPS.map((s, i) => (
+              <li key={s.title} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-6">
+                <div className="flex items-center justify-between">
+                  <span className="w-10 h-10 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center">
+                    <s.icon className="w-5 h-5 text-slate-700" />
+                  </span>
+                  <span className="text-sm font-medium text-slate-300">0{i + 1}</span>
+                </div>
+                <h3 className="mt-5 text-base font-semibold text-slate-900">{s.title}</h3>
+                <p className="mt-2 text-sm text-slate-600 leading-relaxed">{s.body}</p>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-16 grid lg:grid-cols-5 gap-10 items-center">
+            <div className="lg:col-span-2 space-y-4">
+              <Eyebrow>What you get</Eyebrow>
+              <h3 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900 text-balance">
+                Evidence and inference, never mixed.
+              </h3>
+              <p className="text-slate-600 leading-relaxed">
+                Every step keeps what the camera saw, the reason the person said (quoted and linked to the exact
+                sentence) and the model&rsquo;s own guess, labelled as a guess. A reviewer always knows which is which.
+              </p>
+              <p className="text-sm text-slate-500 font-mono bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                Scene → Task → Sub-goals → Steps
+              </p>
+            </div>
+            <div className="lg:col-span-3 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-900">Step 3 · take · inner tube</span>
+                <span className="text-xs text-slate-500 font-mono">0:17 – 0:23</span>
+              </div>
+              <dl className="divide-y divide-slate-100 text-sm">
+                {[
+                  { k: "Seen", c: "text-blue-700", v: "The person picks up the inner tube and begins to pump it slightly." },
+                  { k: "Instruction", c: "text-slate-500", v: "Pump up the inner tube slightly so it becomes round." },
+                  { k: "Said", c: "text-orange-700", v: "“make sure that you pump up the tube slightly just so it becomes round”", q: true },
+                  { k: "Guess", c: "text-slate-400", v: "to give the tube shape for easier installation", g: true },
+                ].map((r) => (
+                  <div key={r.k} className="grid grid-cols-[6.5rem_1fr] gap-3 px-5 py-3.5">
+                    <dt className={`text-xs font-semibold uppercase tracking-wider pt-0.5 ${r.c}`}>{r.k}</dt>
+                    <dd className={r.q ? "text-orange-900" : r.g ? "text-slate-500 italic" : "text-slate-800"}>{r.v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+        </Section>
+
+        {/* Case study */}
+        <Section id="case">
+          <div className="grid lg:grid-cols-3 gap-8 items-end">
+            <div className="lg:col-span-2 space-y-4">
+              <Eyebrow>Case study · Template check</Eyebrow>
+              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900 text-balance">
+                Record the expert once. Catch the missed step on every take.
+              </h2>
+              <p className="text-slate-600 leading-relaxed max-w-2xl">
+                The reference is a narrated recording of opening a water bottle, done the right way. Its four steps were
+                confirmed once. The take below skipped putting the cap down. Steps are matched by intent, using both
+                the actions and the narration, and the verdict for each step is decided by rules, not by the model.
+              </p>
+            </div>
+            <div className="flex lg:justify-end">
+              <Link
+                href="/templates"
+                className="h-10 px-4 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm font-medium inline-flex items-center gap-2 hover:bg-slate-50"
+              >
+                Try template check <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-10 rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.12)] overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-b border-slate-200 bg-white text-xs">
+              <span className="font-medium text-slate-700">Open a water bottle · take checked against the reference</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 border border-red-200 text-red-700 px-2.5 py-0.5 font-medium">
+                3 of 4 complete · 1 missed
+              </span>
+            </div>
+            <CaseStudyScene className="w-full aspect-[3/4] sm:aspect-[16/10] lg:aspect-[16/7]" />
+          </div>
+
+          <div className="mt-6 grid sm:grid-cols-3 gap-4">
+            {[
+              { t: "Reference against itself", v: "4 of 4 complete" },
+              { t: "Take that skipped a step", v: "“Place the cap down” flagged as missed" },
+              { t: "Checked twice", v: "Identical result both times" },
+            ].map((x) => (
+              <div key={x.t} className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-xs text-slate-500">{x.t}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{x.v}</p>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        {/* Product */}
+        <Section className="bg-white border-y border-slate-200">
+          <div className="max-w-2xl">
+            <Eyebrow>The review workspace</Eyebrow>
+            <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900 text-balance">
+              Built for the expert who verifies.
+            </h2>
+          </div>
+          <div className="mt-10 grid lg:grid-cols-12 gap-8 items-start">
+            <div className="lg:col-span-8 rounded-2xl border border-slate-200 bg-slate-100 p-1.5 shadow-sm">
+              <div className="flex items-center gap-1.5 px-2.5 py-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/screens/review.png"
+                alt="Review page: a take checked against the reference, with the missed step flagged"
+                className="w-full rounded-xl border border-slate-200 bg-white"
+                loading="lazy"
+              />
+            </div>
+            <ul className="lg:col-span-4 space-y-5">
+              {[
+                { icon: Columns2, t: "Camera only vs narration", d: "See exactly what the narration added, side by side." },
+                { icon: Layers, t: "Sub-goals", d: "Phases of the task, each with the goal the person stated." },
+                { icon: PencilLine, t: "Correct in place", d: "Edits are stored apart from the model output and kept in the export." },
+                { icon: Scissors, t: "Capture … finish", d: "Mount adjusting and small talk are cut using word timings." },
+                { icon: Download, t: "Export", d: "One JSON per episode, or a zip with the video." },
+              ].map((f) => (
+                <li key={f.t} className="flex gap-3.5">
+                  <span className="w-9 h-9 shrink-0 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center">
+                    <f.icon className="w-4 h-4 text-slate-700" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{f.t}</p>
+                    <p className="text-sm text-slate-600">{f.d}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Section>
+
+        {/* Results */}
+        <Section id="results">
+          <div className="max-w-2xl">
+            <Eyebrow>Results</Eyebrow>
+            <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900 text-balance">
+              Measured on the live system.
+            </h2>
+          </div>
+          <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {RESULTS.map((r) => (
+              <div key={r.label} className="rounded-2xl border border-slate-200 bg-white p-6">
+                <p className="text-3xl font-semibold tracking-tight text-slate-900">{r.value}</p>
+                <p className="mt-2 text-sm font-medium text-slate-800">{r.label}</p>
+                <p className="mt-1 text-xs text-slate-500">{r.note}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-slate-400">Our own clips, scored by us: exploratory, not a benchmark.</p>
+
+          <div className="mt-16 rounded-2xl border border-slate-200 bg-white overflow-hidden">
+            <div className="px-5 sm:px-6 py-4 border-b border-slate-200">
+              <h3 className="text-base font-semibold text-slate-900">How it compares</h3>
+              <p className="text-sm text-slate-500">Where existing approaches get the language for video, and what changes here.</p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {COMPARE.map((c) => (
+                <div key={c.who} className="grid md:grid-cols-[1.1fr_1fr_1.3fr] gap-1 md:gap-6 px-5 sm:px-6 py-4 text-sm">
+                  <p className="font-medium text-slate-900">{c.who}</p>
+                  <p className="text-slate-500">{c.from}</p>
+                  <p className="text-slate-800 flex gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    {c.diff}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Section>
+
+        {/* Final call to action */}
+        <Section className="pt-0 sm:pt-0">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 sm:p-12 shadow-sm grid md:grid-cols-[1fr_auto] gap-8 items-center">
+            <div className="space-y-4">
+              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900 text-balance">
+                Try it with any small task.
+              </h2>
+              <p className="text-slate-600 max-w-xl">
+                Open a box, pour a glass, fix a tube. Talk as you go: what you&rsquo;re doing and why. Your episode is
+                ready to review in about half a minute.
+              </p>
+              <Link
+                href="/capture"
+                className="h-11 px-5 rounded-lg bg-slate-900 text-white text-sm font-medium inline-flex items-center gap-2 hover:bg-slate-800 transition-colors"
+              >
+                Record a task <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+            <PhoneQr path="/capture" />
+          </div>
+        </Section>
+      </main>
+      <SiteFooter />
+    </>
   );
 }
