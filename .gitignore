@@ -1,0 +1,40 @@
+# --- Developer / agent files (kept local, never committed) ---
+# Only README.md files are committed among Markdown files.
+*.md
+!README.md
+!**/README.md
+# Exception: backend prompts are app code loaded at runtime
+!backend/prompts/*.md
+docs/
+notes/
+.claude/
+.agents/
+.codex/
+.gemini/
+.agent/
+CLAUDE.md
+GEMINI.md
+AGENTS.md
+
+# --- Data and outputs ---
+clips/
+probe_out/
+eval/runs/
+eval/.key.json
+
+# --- Secrets ---
+.env*
+!.env.example
+
+# --- Python ---
+.venv/
+__pycache__/
+*.pyc
+
+# --- Node / Next.js ---
+node_modules/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
