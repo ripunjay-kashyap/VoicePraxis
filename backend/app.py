@@ -61,10 +61,11 @@ def update(episode_id: str, **fields) -> dict:
     timeout=600,
 )
 def process_episode(episode_id: str) -> None:
-    """uploaded → preparing/converting → analysing → linking → ready | failed (stage names are real steps)."""
+    """uploaded → preparing/converting → listening → analysing → linking → ready | failed (real steps)."""
     from pipeline.assemble import assemble
     from pipeline.gemini import GeminiError, KeyPool, analyse
-    from pipeline.media import MAX_SECONDS, convert, probe
+    from pipeline.media import MAX_SECONDS, convert, extract_audio, probe
+    from pipeline.stt import transcribe
 
     t0 = time.time()
     volume.reload()  # see the upload committed by the web container (no files open yet)
@@ -84,11 +85,22 @@ def process_episode(episode_id: str) -> None:
         volume.commit()
         convert_s = time.time() - t0
 
+        pool = KeyPool()
+        transcript, stt_meta = None, {"stt_model": None}
+        if info.has_audio:
+            update(episode_id, status="analysing", stage="listening")
+            try:
+                transcript, stt_meta = transcribe(pool, extract_audio(playback, Path("/tmp/work") / episode_id))
+            except GeminiError as e:  # fall back to the single-pass transcript
+                stt_meta = {"stt_model": None, "stt_error": str(e)}
+
         update(episode_id, status="analysing", stage="analysing")
-        output, meta = analyse(KeyPool(), playback, audio=True)
+        output, meta = analyse(pool, playback, audio=True, transcript=transcript or None)
+        meta.update(stt_meta)
 
         update(episode_id, stage="linking")
-        episode = assemble(output, episode_id=episode_id, duration=info.duration, pipeline=meta)
+        episode = assemble(output, episode_id=episode_id, duration=info.duration, pipeline=meta,
+                           transcript=transcript or None)
         if info.hdr:
             episode["task"]["uncertainty"].append("Recorded in HDR; colours in playback may look washed out.")
         update(
@@ -101,7 +113,7 @@ def process_episode(episode_id: str) -> None:
             corrections=[],
             video_only_output=None,
             template_id=None,
-            timings={"convert_s": round(convert_s, 1), "upload_s": meta["upload_s"],
+            timings={"convert_s": round(convert_s, 1), "stt_s": meta.get("stt_s"), "upload_s": meta["upload_s"],
                      "generation_s": meta["generation_s"], "total_s": round(time.time() - t0, 1)},
         )
     except GeminiError as e:

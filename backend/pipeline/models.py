@@ -14,6 +14,7 @@ class SaidRef(BaseModel):
 
 class Task(BaseModel):
     name: str
+    summary: str = ""
     declared_intent: SaidRef | None = None
     outcome: Outcome = "unresolved"
     outcome_evidence: str = ""
@@ -47,8 +48,17 @@ class Action(BaseModel):
     uncertainty: list[str] = Field(default_factory=list)
 
 
+class Subtask(BaseModel):
+    start: float
+    end: float
+    goal: str
+    stated_intent: SaidRef | None = None
+    inferred_intent: str | None = None
+
+
 class ModelOutput(BaseModel):
     scene: str = ""
     task: Task
     narration: list[Utterance] = Field(default_factory=list)
+    subtasks: list[Subtask] = Field(default_factory=list)
     actions: list[Action] = Field(default_factory=list)

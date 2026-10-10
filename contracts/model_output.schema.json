@@ -1,10 +1,11 @@
 {
-  "$comment": "What Gemini must return for one clip (v2, adds verb/object/tool, Oct 10). The backend's assemble step turns this into episode JSON 0.2 (ids, review fields, pending_questions, clarifications, template_check). All times are decimal seconds from the start of the clip.",
+  "$comment": "What Gemini must return for one clip (v3: verb/object/tool, task.summary, subtasks, Oct 10). The backend's assemble step turns this into episode JSON 0.2 (ids, review fields, pending_questions, clarifications, template_check). All times are decimal seconds from the start of the clip.",
   "type": "object",
   "required": [
     "scene",
     "task",
     "narration",
+    "subtasks",
     "actions"
   ],
   "properties": {
@@ -16,6 +17,7 @@
       "type": "object",
       "required": [
         "name",
+        "summary",
         "declared_intent",
         "outcome",
         "outcome_evidence"
@@ -55,6 +57,10 @@
         "outcome_evidence": {
           "type": "string",
           "description": "What in the video supports the outcome."
+        },
+        "summary": {
+          "type": "string",
+          "description": "One plain sentence (max ~20 words) saying what the person did and why, using their stated intent when they gave one."
         }
       }
     },
@@ -249,6 +255,58 @@
               "null"
             ],
             "description": "Tool used, lowercase noun (e.g. 'pump', 'box cutter'). null if only hands."
+          }
+        }
+      }
+    },
+    "subtasks": {
+      "type": "array",
+      "description": "The task split into 2-6 sub-goals (phases), in time order. Each groups consecutive actions that serve one purpose.",
+      "items": {
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "goal",
+          "stated_intent",
+          "inferred_intent"
+        ],
+        "properties": {
+          "start": {
+            "type": "number"
+          },
+          "end": {
+            "type": "number"
+          },
+          "goal": {
+            "type": "string",
+            "description": "Short name of the sub-goal, e.g. 'Seat one side of the tyre'."
+          },
+          "stated_intent": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "text",
+              "utterance_id"
+            ],
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "utterance_id": {
+                "type": "string"
+              }
+            },
+            "description": "What the person SAID they were trying to achieve in this phase, with the utterance id. null if not said."
+          },
+          "inferred_intent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Your own guess at this phase's purpose from the video. Never copy the stated intent. null if unclear."
           }
         }
       }

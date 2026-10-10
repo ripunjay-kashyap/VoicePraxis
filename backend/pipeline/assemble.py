@@ -23,9 +23,18 @@ def _clamp(t: float, duration: float) -> float:
     return round(min(max(t, 0.0), duration), 2) if duration > 0 else round(max(t, 0.0), 2)
 
 
-def assemble(output: ModelOutput, *, episode_id: str, duration: float, pipeline: dict) -> dict:
-    # Narration: speech-01… in time order; keep a map from the model's ids.
-    utterances = sorted(output.narration, key=lambda u: u.start)
+def assemble(output: ModelOutput, *, episode_id: str, duration: float, pipeline: dict,
+             transcript: list[dict] | None = None) -> dict:
+    # Narration: the speech-to-text transcript when we have one (authoritative),
+    # otherwise the model's own. speech-01… in time order; map the cited ids.
+    if transcript:
+        from pipeline.models import Utterance
+        utterances = [Utterance(id=u["id"], start=u["start"], end=u["end"], text=u["text"], mode="general") for u in transcript]
+        modes = {u.id: u.mode for u in output.narration}
+        for u in utterances:
+            u.mode = modes.get(u.id, "general")
+    else:
+        utterances = sorted(output.narration, key=lambda u: u.start)
     id_map: dict[str, str] = {}
     narration = []
     for i, u in enumerate(utterances, 1):
@@ -73,9 +82,37 @@ def assemble(output: ModelOutput, *, episode_id: str, duration: float, pipeline:
             "human_corrections": [],
         })
 
+    # Subtasks (sub-intents): subtask-01…; each action joins the subtask it overlaps most.
+    subtasks = []
+    for i, st in enumerate(sorted(output.subtasks, key=lambda s: s.start), 1):
+        notes: list[str] = []
+        start = _clamp(st.start, duration)
+        subtasks.append({
+            "id": f"subtask-{i:02d}",
+            "start": start,
+            "end": max(start, _clamp(st.end, duration)),
+            "goal": st.goal.strip(),
+            "stated_intent": link(st.stated_intent, "stated intent", notes),
+            "inferred_intent": (st.inferred_intent or "").strip() or None,
+            "uncertainty": notes,
+            "action_refs": [],
+        })
+    for a in actions:
+        best, best_overlap = None, 0.0
+        for st in subtasks:
+            overlap = min(a["end"], st["end"]) - max(a["start"], st["start"])
+            if overlap > best_overlap or (best is None and st["start"] <= a["start"] <= st["end"]):
+                best, best_overlap = st, max(overlap, best_overlap)
+        if best is None and subtasks:  # zero-length or outside every phase: nearest by start
+            best = min(subtasks, key=lambda st: abs(st["start"] - a["start"]))
+        a["subtask_ref"] = best["id"] if best else None
+        if best:
+            best["action_refs"].append(a["id"])
+
     task_notes: list[str] = []
     task = {
         "name": output.task.name.strip(),
+        "summary": output.task.summary.strip(),
         "declared_intent": link(output.task.declared_intent, "declared intent", task_notes),
         "outcome": output.task.outcome,
         "outcome_evidence": output.task.outcome_evidence.strip(),
@@ -107,6 +144,7 @@ def assemble(output: ModelOutput, *, episode_id: str, duration: float, pipeline:
         "scene": output.scene.strip(),
         "task": task,
         "narration": narration,
+        "subtasks": subtasks,
         "actions": actions,
         "pending_questions": pending,
         "clarifications": [],

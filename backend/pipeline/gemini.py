@@ -29,7 +29,7 @@ class Settings:
     media_resolution: str = "default"
     thinking_level: str = "low"
     mode: str = "static"
-    prompt_version: str = "base_v2"
+    prompt_version: str = "base_v3"
     max_output_tokens: int = 8192
 
 
@@ -91,9 +91,22 @@ def _config(s: Settings) -> types.GenerateContentConfig:
     return config
 
 
-def analyse(pool: KeyPool, video: Path, audio: bool, settings: Settings = SETTINGS) -> tuple[ModelOutput, dict]:
+def transcript_block(utterances: list[dict]) -> str:
+    lines = [f"{u['id']} [{u['start']:.1f}-{u['end']:.1f}s] {u['text']}" for u in utterances]
+    return (
+        "\n\nTRANSCRIPT (from a dedicated speech-to-text model; authoritative):\n"
+        + "\n".join(lines)
+        + "\n\nUse this transcript instead of transcribing the audio yourself. Copy these utterances into "
+        "`narration` with the same ids, times and text. Every utterance_id you cite must be one of these ids."
+    )
+
+
+def analyse(pool: KeyPool, video: Path, audio: bool, settings: Settings = SETTINGS,
+            transcript: list[dict] | None = None) -> tuple[ModelOutput, dict]:
     """Returns the validated model output and the `pipeline` metadata block for this run."""
     prompt = (PROMPTS / f"{settings.prompt_version}.md").read_text()
+    if transcript:
+        prompt += transcript_block(transcript)
     last: Exception | None = None
     for k in pool.order():
         client = pool.clients[k]
@@ -121,6 +134,7 @@ def analyse(pool: KeyPool, video: Path, audio: bool, settings: Settings = SETTIN
                 meta = {
                     **asdict(settings),
                     "audio": audio,
+                    "transcript_given": bool(transcript),
                     "upload_s": round(upload_s, 1),
                     "generation_s": round(time.time() - t1, 1),
                     "attempts": attempt + 1,

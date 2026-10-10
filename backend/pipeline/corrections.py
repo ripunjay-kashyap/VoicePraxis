@@ -17,7 +17,7 @@ from pipeline.models import VERBS  # noqa: E402
 
 ACTION_ENUMS["verb"] = set(VERBS)
 ACTION_TIMES = {"start", "end"}
-TASK_TEXT = {"name"}
+TASK_TEXT = {"name", "summary"}
 TASK_ENUMS = {"outcome": {"success", "failed", "unresolved"}}
 
 

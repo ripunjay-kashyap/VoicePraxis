@@ -43,6 +43,18 @@ def probe(path: Path) -> MediaInfo:
     )
 
 
+def extract_audio(video: Path, workdir: Path) -> Path:
+    """16 kHz mono AAC for speech-to-text (small upload, plenty for speech)."""
+    out = workdir / "audio.m4a"
+    if not out.exists():
+        subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error", "-i", str(video), "-vn", "-ac", "1", "-ar", "16000",
+             "-c:a", "aac", "-b:a", "64k", str(out)],
+            check=True,
+        )
+    return out
+
+
 def convert(src: Path, workdir: Path) -> tuple[Path, Path]:
     """playback.mp4 (H.264, max 720p, faststart) and noaudio.mp4 (identical frames, no audio).
 
