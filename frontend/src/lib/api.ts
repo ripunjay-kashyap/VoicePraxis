@@ -79,7 +79,8 @@ export async function fetchSavedEpisodes(): Promise<SavedEpisodeListItem[]> {
 export function uploadEpisode(
   file: File,
   onProgress?: (progress: UploadProgress) => void,
-  templateId?: string | null
+  templateId?: string | null,
+  purpose?: "reference" | "take"
 ): Promise<UploadResult> {
   const apiBase = getApiBase();
 
@@ -146,6 +147,7 @@ export function uploadEpisode(
     const formData = new FormData();
     formData.append("file", file, file.name);
     if (templateId) formData.append("template_id", templateId);
+    if (purpose) formData.append("purpose", purpose);
 
     xhr.send(formData);
   });

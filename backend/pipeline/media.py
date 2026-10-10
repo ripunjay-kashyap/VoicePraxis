@@ -79,3 +79,20 @@ def convert(src: Path, workdir: Path) -> tuple[Path, Path]:
             check=True,
         )
     return playback, noaudio
+
+
+def trim(playback: Path, start: float, end: float, workdir: Path) -> tuple[Path, Path]:
+    """Frame-accurate cut of playback.mp4 to [start, end], plus its no-audio copy."""
+    workdir.mkdir(parents=True, exist_ok=True)
+    out, noaudio = workdir / "trimmed.mp4", workdir / "trimmed_noaudio.mp4"
+    subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{start:.2f}", "-i", str(playback), "-t", f"{end - start:.2f}",
+         "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
+         "-movflags", "+faststart", str(out)],
+        check=True,
+    )
+    subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error", "-i", str(out), "-an", "-c:v", "copy", "-movflags", "+faststart", str(noaudio)],
+        check=True,
+    )
+    return out, noaudio

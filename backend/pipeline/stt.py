@@ -61,8 +61,8 @@ def group_words(words: list[Word]) -> list[dict]:
     return utterances
 
 
-def transcribe(pool: KeyPool, audio: Path) -> tuple[list[dict], dict]:
-    """Returns utterances [{id, start, end, text}] and metadata for the pipeline block."""
+def transcribe(pool: KeyPool, audio: Path) -> tuple[list[dict], dict, list[Word]]:
+    """Returns utterances [{id, start, end, text}], metadata for the pipeline block, and the raw words."""
     last: Exception | None = None
     for k in pool.order():
         client = pool.clients[k]
@@ -86,7 +86,7 @@ def transcribe(pool: KeyPool, audio: Path) -> tuple[list[dict], dict]:
             except Exception:
                 pass
             utterances = group_words(words)
-            return utterances, {"stt_model": STT_MODEL, "stt_s": round(time.time() - t0, 1), "words": len(words)}
+            return utterances, {"stt_model": STT_MODEL, "stt_s": round(time.time() - t0, 1), "words": len(words)}, words
         except Exception as e:
             last = e
             if not _is_rate_limit(e):

@@ -373,6 +373,18 @@ function EpisodeShellPageContent() {
           <h2 className="text-base sm:text-lg font-bold text-slate-900 capitalize">
             {episode.task.name}
           </h2>
+          {episode.pipeline?.trim && (
+            <p className="text-xs text-slate-500">
+              Trimmed to the task: {formatTimestamp(episode.pipeline.trim.start)}–{formatTimestamp(episode.pipeline.trim.end)} of the{" "}
+              {formatTimestamp(episode.pipeline.trim.original_duration)} recording
+              {episode.pipeline.trim.keyword_start !== null && episode.pipeline.trim.keyword_end !== null
+                ? ", between \u201ccapture\u201d and \u201cfinish\u201d"
+                : episode.pipeline.trim.keyword_start !== null
+                  ? ", from \u201ccapture\u201d"
+                  : ", up to \u201cfinish\u201d"}
+              .
+            </p>
+          )}
           {episode.task.summary && (
             <p className="text-sm text-slate-600 leading-relaxed max-w-3xl">{episode.task.summary}</p>
           )}

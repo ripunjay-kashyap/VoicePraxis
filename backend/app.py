@@ -19,7 +19,7 @@ VOL_PATH = Path("/data")
 CACHE = Path("/tmp/cache")
 VIDEO_EXTS = {".mov", ".mp4", ".m4v", ".webm", ".3gp", ".mkv"}
 MAX_BYTES = 200 * 1024 * 1024
-FLAG_NAMES = ("SIDE_BY_SIDE", "COPILOT", "REVIEW_QUEUE", "TEMPLATES", "INDIC", "VISION_OVERLAY")
+FLAG_NAMES = ("SIDE_BY_SIDE", "COPILOT", "REVIEW_QUEUE", "TEMPLATES", "KEYWORDS", "INDIC", "VISION_OVERLAY")
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -82,11 +82,35 @@ def process_episode(episode_id: str) -> None:
         info.duration = probe(playback).duration
         if info.duration > MAX_SECONDS + 1:
             raise GeminiError(f"This clip is {info.duration:.0f} s long. Keep clips under {MAX_SECONDS} seconds.")
+        convert_s = time.time() - t0
+        pool = KeyPool()
+        work = Path("/tmp/work") / episode_id
+
+        # Listening first: the word timings also locate the spoken "capture" / "finish" markers.
+        transcript, stt_meta, words = None, {"stt_model": None}, []
+        if info.has_audio:
+            update(episode_id, status="analysing", stage="listening")
+            try:
+                transcript, stt_meta, words = transcribe(pool, extract_audio(playback, work))
+            except GeminiError as e:  # fall back to the single-pass transcript
+                stt_meta = {"stt_model": None, "stt_error": str(e)}
+
+        # Feature hook (KEYWORDS): keep only the part between "capture" and "finish".
+        trim_info = None
+        if words and flags()["KEYWORDS"] and record.get("purpose") != "reference":  # references aren't cut
+            from pipeline.keywords import find_window, shift_words
+            from pipeline.media import trim
+            from pipeline.stt import group_words
+
+            trim_info = find_window(words, info.duration)
+            if trim_info:
+                update(episode_id, stage="trimming")
+                playback, noaudio = trim(playback, trim_info["start"], trim_info["end"], work)
+                info.duration = probe(playback).duration
+                transcript = group_words(shift_words(words, trim_info)) or None
+
         shutil.copy(playback, video_dir(episode_id) / "playback.mp4")
         volume.commit()
-        convert_s = time.time() - t0
-
-        pool = KeyPool()
 
         # Feature hook (SIDE_BY_SIDE): camera-only run in parallel; never blocks the episode.
         camera_future = None
@@ -97,17 +121,11 @@ def process_episode(episode_id: str) -> None:
 
             camera_pool = ThreadPoolExecutor(1)
             camera_future = camera_pool.submit(camera_only, pool, noaudio, episode_id=episode_id, duration=info.duration)
-        transcript, stt_meta = None, {"stt_model": None}
-        if info.has_audio:
-            update(episode_id, status="analysing", stage="listening")
-            try:
-                transcript, stt_meta = transcribe(pool, extract_audio(playback, Path("/tmp/work") / episode_id))
-            except GeminiError as e:  # fall back to the single-pass transcript
-                stt_meta = {"stt_model": None, "stt_error": str(e)}
 
         update(episode_id, status="analysing", stage="analysing")
         output, meta = analyse(pool, playback, audio=True, transcript=transcript or None)
         meta.update(stt_meta)
+        meta["trim"] = trim_info
 
         update(episode_id, stage="linking")
         camera_result = None
@@ -199,7 +217,7 @@ def api():
         return {"flags": flags(), "version": "mvp-dev"}
 
     @web.post("/episodes", status_code=201)
-    async def create_episode(file: UploadFile = File(...), template_id: str | None = Form(None)):
+    async def create_episode(file: UploadFile = File(...), template_id: str | None = Form(None), purpose: str | None = Form(None)):
         ext = Path(file.filename or "").suffix.lower()
         if not ((file.content_type or "").startswith("video/") or ext in VIDEO_EXTS):
             raise HTTPException(415, "That file isn't a video. Record or choose a video clip.")
@@ -228,6 +246,7 @@ def api():
             "original": dest.name,
             "bytes": size,
             "template_id": template_id if template_id and templates.get(template_id) else None,
+            "purpose": "reference" if purpose == "reference" else "take",
         }
         process_episode.spawn(episode_id)
         return {"id": episode_id, "bytes": size, "receive_s": round(receive_s, 2)}
@@ -240,6 +259,10 @@ def api():
         out["label"] = record.get("label")
         model_output = record.get("model_output")
         out["episode"] = apply(model_output, record.get("corrections") or []) if model_output else None
+        if out["episode"]:  # also cleans episodes stored before the one-sentence rule
+            from pipeline.assemble import first_sentence
+
+            out["episode"]["task"]["summary"] = first_sentence(out["episode"]["task"].get("summary"))
         out["video_only"] = record.get("video_only_output")
         if out["episode"] is not None:
             out["episode"]["template_check"] = record.get("template_check")

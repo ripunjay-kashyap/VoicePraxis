@@ -8,6 +8,7 @@ export type ProcessingStage =
   | "converting"
   | "listening"
   | "analysing"
+  | "trimming"
   | "linking"
   | "checking"
   | "ready"
@@ -18,7 +19,16 @@ export interface EpisodeStatus {
   error: string | null;
 }
 
+export interface TrimInfo {
+  start: number;
+  end: number;
+  keyword_start: number | null;
+  keyword_end: number | null;
+  original_duration: number;
+}
+
 export interface PipelineConfig {
+  trim?: TrimInfo | null;
   model: string;
   fps: number;
   res: "default" | "low" | string;

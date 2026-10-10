@@ -8,6 +8,8 @@ interface VideoPickerProps {
   /** Called with the new episode id once the upload is accepted */
   onUploaded: (episodeId: string) => void;
   templateId?: string | null;
+  /** "reference" recordings are never cut by the capture/finish keywords */
+  purpose?: "reference" | "take";
   recordLabel?: string;
   uploadLabel?: string;
 }
@@ -15,7 +17,7 @@ interface VideoPickerProps {
 const MAX_BYTES = 200 * 1024 * 1024;
 
 /** Record with the device camera or upload a clip; shows progress and readable errors. */
-export function VideoPicker({ onUploaded, templateId, recordLabel = "Record", uploadLabel = "Upload a video" }: VideoPickerProps) {
+export function VideoPicker({ onUploaded, templateId, purpose, recordLabel = "Record", uploadLabel = "Upload a video" }: VideoPickerProps) {
   const recordRef = React.useRef<HTMLInputElement>(null);
   const uploadRef = React.useRef<HTMLInputElement>(null);
   const [progress, setProgress] = React.useState<number | null>(null);
@@ -35,7 +37,7 @@ export function VideoPicker({ onUploaded, templateId, recordLabel = "Record", up
     }
     setProgress(0);
     try {
-      const r = await uploadEpisode(file, (p) => setProgress(p.percent), templateId || null);
+      const r = await uploadEpisode(file, (p) => setProgress(p.percent), templateId || null, purpose);
       onUploaded(r.id);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";

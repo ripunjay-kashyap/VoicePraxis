@@ -88,7 +88,7 @@ export default function NewTemplatePage() {
               checklist every take is compared with.
             </p>
           </div>
-          <VideoPicker onUploaded={setEpisodeId} recordLabel="Record reference" uploadLabel="Upload reference" />
+          <VideoPicker onUploaded={setEpisodeId} purpose="reference" recordLabel="Record reference" uploadLabel="Upload reference" />
         </section>
       )}
 
