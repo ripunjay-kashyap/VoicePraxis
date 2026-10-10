@@ -20,6 +20,9 @@ JUDGE_MODEL = "gemini-3.5-flash-lite"
 UNCLEAR_BELOW = 0.5
 SEEN_AT_LEAST = 0.6  # a second look only counts a step as done when this sure
 VERIFY_FPS = 4
+# The second look prefers the robotics embodied-reasoning model (better at tracking hands and objects,
+# e.g. a cap set down just out of frame); its daily quota is small, so it falls back to the judge model.
+VERIFY_MODELS = ("gemini-robotics-er-2-preview", JUDGE_MODEL)
 
 # status → (severity, label); severity: action problem (red), data gap (orange), info (blue)
 STATUS = {
@@ -104,10 +107,8 @@ VERIFY_PROMPT = """Watch this video of a person doing a physical task. For EACH 
 whether the person performs it in this video. Ignore anything said; judge only the visible actions.
 
 - "yes": you clearly see the step happen. Give the time it starts (seconds).
-- "indirect": it happens just out of view, but what you see proves it: e.g. a hand carries the object
-  out of frame and comes back empty, or the object is in its new place afterwards. Give the time it starts.
-- "no": it doesn't happen, e.g. the person is still holding the object at the end, or does something else.
-  Don't assume a step happened only because it usually follows another one.
+- "indirect": it happens just out of view, but what you see proves it. Give the time it starts.
+- "no": it doesn't happen. Don't assume a step happened only because it usually follows another one.
 - "unclear": the view doesn't show enough to tell either way.
 
 STEPS:
@@ -115,40 +116,52 @@ STEPS:
 """
 
 
-def _verify(pool: KeyPool, video: Path, steps: list[dict]) -> dict[str, dict]:
-    """A second, targeted look at the take's video for steps the judge couldn't match."""
+def _verify(pool: KeyPool, video: Path, steps: list[dict]) -> tuple[dict[str, dict], str | None]:
+    """A second, targeted look at the take's video for steps the judge couldn't match.
+
+    Returns the per-step answers and the model that gave them ({} and None if every model failed).
+    """
     lines = "\n".join(f"{s['id']}: {s['instruction']} [{s.get('verb')} · {s.get('object')}]" for s in steps)
+    prompt = VERIFY_PROMPT.format(steps=lines)
     last = None
-    for k in pool.order():
-        client = pool.clients[k]
-        try:
-            f = _upload(client, video)
-            part = types.Part(
-                file_data=types.FileData(file_uri=f.uri, mime_type=f.mime_type),
-                video_metadata=types.VideoMetadata(fps=VERIFY_FPS),
-            )
-            resp = client.models.generate_content(
-                model=JUDGE_MODEL,
-                contents=[types.Content(role="user", parts=[part, types.Part(text=VERIFY_PROMPT.format(steps=lines))])],
-                config=types.GenerateContentConfig(
+    for model in VERIFY_MODELS:
+        for k in pool.order():
+            client = pool.clients[k]
+            f = None
+            try:
+                f = _upload(client, video)
+                part = types.Part(
+                    file_data=types.FileData(file_uri=f.uri, mime_type=f.mime_type),
+                    video_metadata=types.VideoMetadata(fps=VERIFY_FPS),
+                )
+                config = types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_json_schema=VERIFY_SCHEMA,
-                    thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW),
                     max_output_tokens=2048,
-                ),
-            )
-            try:
-                client.files.delete(name=f.name)
-            except Exception:
-                pass
-            return {v.get("template_step_id"): v for v in json.loads(resp.text or "{}").get("steps", [])}
-        except Exception as e:  # any failure: log it and try the next key
-            last = e
-            print(f"[templates] verify failed on key {k + 1}: {type(e).__name__}: {str(e)[:300]}")
-            if not _is_rate_limit(e):
-                time.sleep(0.5)
+                )
+                if model == JUDGE_MODEL:
+                    config.thinking_config = types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW)
+                resp = client.models.generate_content(
+                    model=model,
+                    contents=[types.Content(role="user", parts=[part, types.Part(text=prompt)])],
+                    config=config,
+                )
+                answers = {v.get("template_step_id"): v for v in json.loads(resp.text or "{}").get("steps", [])}
+                print(f"[templates] verify used {model} on key {k + 1}")
+                return answers, model
+            except Exception as e:  # any failure: log it and try the next key, then the next model
+                last = e
+                print(f"[templates] verify {model} failed on key {k + 1}: {type(e).__name__}: {str(e)[:200]}")
+                if not _is_rate_limit(e):
+                    time.sleep(0.5)
+            finally:
+                if f is not None:
+                    try:
+                        client.files.delete(name=f.name)
+                    except Exception:
+                        pass
     print(f"[templates] verify gave up: {type(last).__name__ if last else 'no keys'}")
-    return {}
+    return {}, None
 
 
 def steps_from_episode(episode: dict) -> list[dict]:
@@ -241,12 +254,13 @@ def check(pool: KeyPool, template: dict, take: dict, video: Path | None = None) 
 
     # Second look at the video for unmatched steps that weren't skipped on purpose.
     seen: dict[str, dict] = {}
+    verify_model = None
     todo = [
         st for st in template["steps"]
         if matched[st["id"]]["did"] != "yes" and not (matched[st["id"]]["m"].get("skip_reason") or "").strip()
     ]
     if video is not None and todo:
-        seen = _verify(pool, video, todo)
+        seen, verify_model = _verify(pool, video, todo)
 
     # With no speech at all, "not seen" is weak evidence (steps often happen just out of frame),
     # so an unseen step is flagged for a person to check instead of being called missed.
@@ -320,6 +334,6 @@ def check(pool: KeyPool, template: dict, take: dict, video: Path | None = None) 
         counts[r["status"]] = counts.get(r["status"], 0) + 1
     return {
         "template_id": template["id"], "template_name": template["name"], "checked_at": time.time(),
-        "steps": rows, "extras": extras, "counts": counts,
+        "steps": rows, "extras": extras, "counts": counts, "second_look_model": verify_model,
         "complete": counts.get("complete", 0), "total": len(rows),
     }
