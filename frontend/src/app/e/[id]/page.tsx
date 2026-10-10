@@ -18,6 +18,8 @@ import { VideoPlayer } from "@/components/episode/VideoPlayer";
 import { ThreeLaneTimeline } from "@/components/episode/ThreeLaneTimeline";
 import { SidePanel } from "@/components/episode/SidePanel";
 import { ProcessingView } from "@/components/episode/ProcessingView";
+import { SubtaskStrip } from "@/components/episode/SubtaskStrip";
+import { ScriptView } from "@/components/episode/ScriptView";
 import { ExportModal } from "@/components/episode/ExportModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -107,19 +109,19 @@ function EpisodeShellPageContent() {
   if (fetchError && !episode) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center max-w-lg w-full mx-auto p-4 sm:p-6 min-h-[60vh]">
-        <div className="w-full rounded-2xl border border-red-800/80 bg-[#11141d] p-6 shadow-2xl text-center space-y-5">
-          <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 mx-auto">
-            <AlertTriangle className="w-6 h-6 text-red-400" />
+        <div className="w-full rounded-2xl border border-red-200 bg-white p-6 shadow-sm text-center space-y-5">
+          <div className="w-12 h-12 rounded-xl bg-red-500 border border-red-300 flex items-center justify-center text-red-700 mx-auto">
+            <AlertTriangle className="w-6 h-6 text-red-700" />
           </div>
 
           <div>
-            <h2 className="text-lg font-semibold text-white">Episode Load Failed</h2>
-            <p className="text-xs font-mono text-slate-400 mt-1">
-              ID: <span className="text-slate-200">{episodeId}</span>
+            <h2 className="text-lg font-semibold text-slate-900">Episode Load Failed</h2>
+            <p className="text-xs font-mono text-slate-500 mt-1">
+              ID: <span className="text-slate-800">{episodeId}</span>
             </p>
           </div>
 
-          <div className="p-3.5 rounded-lg border border-red-900/60 bg-red-950/30 text-xs text-red-300 font-mono text-left">
+          <div className="p-3.5 rounded-lg border border-red-200 bg-red-50 text-xs text-red-700 font-mono text-left">
             {fetchError}
           </div>
 
@@ -138,7 +140,7 @@ function EpisodeShellPageContent() {
             <Button
               variant="outline"
               onClick={() => router.push("/")}
-              className="flex-1 gap-1.5 cursor-pointer text-xs border-slate-700"
+              className="flex-1 gap-1.5 cursor-pointer text-xs border-slate-200"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               Back to capture
@@ -161,11 +163,11 @@ function EpisodeShellPageContent() {
   if (!episode) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3 text-slate-400">
-          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <div className="w-8 h-8 border-2 border-emerald-300 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm font-mono">Loading episode {episodeId}...</p>
           {isSlowLoading && (
-            <p className="text-xs text-amber-400 font-mono animate-pulse">
+            <p className="text-xs text-amber-700 font-mono animate-pulse">
               Waking the server (first load may take ~5–10 s)...
             </p>
           )}
@@ -262,29 +264,29 @@ function EpisodeShellPageContent() {
   return (
     <div className="flex-1 flex flex-col max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 space-y-4 sm:space-y-6">
       {/* Top Header Bar */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#1c2230] pb-3">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push("/")}
-            className="gap-1.5 text-slate-400 hover:text-white cursor-pointer"
+            className="gap-1.5 text-slate-500 hover:text-slate-900 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             Capture
           </Button>
 
-          <div className="h-4 w-px bg-slate-800" />
+          <div className="h-4 w-px bg-slate-100" />
 
           <div>
-            <h1 className="text-sm sm:text-base font-semibold text-white flex items-center gap-2">
+            <h1 className="text-sm sm:text-base font-semibold text-slate-900 flex items-center gap-2">
               <span>Episode</span>
-              <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-800/90 text-emerald-400 border border-slate-700">
+              <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-100 text-emerald-700 border border-slate-200">
                 {episode.episode_id}
               </span>
             </h1>
-            <p className="text-[11px] text-slate-400">
-              Scene: <span className="text-slate-200 font-medium">{episode.scene || "demonstration"}</span> ·{" "}
+            <p className="text-[11px] text-slate-500">
+              Scene: <span className="text-slate-800 font-medium">{episode.scene || "demonstration"}</span> ·{" "}
               {episode.duration_seconds}s duration
             </p>
           </div>
@@ -292,14 +294,14 @@ function EpisodeShellPageContent() {
 
         <div className="flex items-center gap-2">
           {forceMock && (
-            <Badge variant="outline" className="border-amber-500/80 bg-amber-950/60 text-amber-300 font-mono text-xs">
+            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 font-mono text-xs">
               Mock data (?mock=1)
             </Badge>
           )}
 
           {episode.pipeline && (
-            <Badge variant="outline" className="border-slate-700 bg-slate-900/60 text-slate-300 font-mono text-xs gap-1.5 hidden md:inline-flex">
-              <Cpu className="w-3 h-3 text-slate-400" />
+            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600 font-mono text-xs gap-1.5 hidden md:inline-flex">
+              <Cpu className="w-3 h-3 text-slate-500" />
               {episode.pipeline.model} ({episode.pipeline.fps}fps)
             </Badge>
           )}
@@ -310,7 +312,7 @@ function EpisodeShellPageContent() {
             onClick={() => setIsExportOpen(true)}
             className="gap-1.5 text-xs font-mono cursor-pointer"
           >
-            <FileCode className="w-3.5 h-3.5 text-emerald-400" />
+            <FileCode className="w-3.5 h-3.5 text-emerald-700" />
             Export / Download
           </Button>
         </div>
@@ -318,12 +320,12 @@ function EpisodeShellPageContent() {
 
       {/* Saved Episode Banner (Rule 3) */}
       {episode.saved && (
-        <div className="rounded-xl border border-emerald-800/60 bg-gradient-to-r from-emerald-950/40 via-[#0e1614] to-emerald-950/30 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+        <div className="rounded-xl border border-emerald-200     p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
           <div className="flex items-center gap-2.5">
-            <Badge variant="why" className="text-[10px] font-mono uppercase tracking-wider">
+            <Badge variant="why" className="text-[10px] uppercase font-medium tracking-wider">
               Saved Reference
             </Badge>
-            <span className="text-xs sm:text-sm font-semibold text-emerald-200">
+            <span className="text-xs sm:text-sm font-semibold text-emerald-800">
               {episode.label || "Saved episode · bike tube test clip (YouTube)"}
             </span>
           </div>
@@ -333,7 +335,7 @@ function EpisodeShellPageContent() {
             size="sm"
             disabled={isResetting}
             onClick={handleResetEdits}
-            className="h-7 text-xs font-mono border-slate-700 bg-slate-900/80 hover:bg-slate-800 text-slate-300 gap-1.5 cursor-pointer"
+            className="h-7 text-xs font-mono border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 gap-1.5 cursor-pointer"
           >
             {isResetting ? (
               <>
@@ -342,7 +344,7 @@ function EpisodeShellPageContent() {
               </>
             ) : (
               <>
-                <RotateCcw className="w-3 h-3 text-slate-400" />
+                <RotateCcw className="w-3 h-3 text-slate-500" />
                 Reset edits
               </>
             )}
@@ -351,31 +353,44 @@ function EpisodeShellPageContent() {
       )}
 
       {/* Task Intent & Outcome Banner */}
-      <div className="rounded-xl border border-[#1e2434] bg-[#0e121a] p-3.5 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg">
+      <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-slate-400">
+          <div className="flex items-center gap-2 text-xs uppercase font-medium tracking-wider text-slate-500">
             <span>Demonstrated Task</span>
-            <span className="text-emerald-400 font-semibold">• Outcome: {episode.task.outcome}</span>
+            <span className="text-emerald-700 font-semibold">• Outcome: {episode.task.outcome}</span>
           </div>
-          <h2 className="text-base sm:text-lg font-bold text-white capitalize">
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 capitalize">
             {episode.task.name}
           </h2>
+          {episode.task.summary && (
+            <p className="text-sm text-slate-600 leading-relaxed max-w-3xl">{episode.task.summary}</p>
+          )}
           {episode.task.declared_intent && (
-            <p className="text-xs text-orange-300/90 flex items-center gap-1.5 pt-0.5">
-              <Mic className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+            <p className="text-xs text-orange-700 flex items-center gap-1.5 pt-0.5">
+              <Mic className="w-3.5 h-3.5 text-orange-700 shrink-0" />
               <span>
-                <strong className="text-orange-400 font-mono">Declared Intent:</strong> &ldquo;
+                <strong className="text-orange-700 font-mono">Declared Intent:</strong> &ldquo;
                 {episode.task.declared_intent.text}&rdquo;
               </span>
             </p>
           )}
         </div>
 
-        <div className="text-xs text-slate-400 max-w-md bg-[#131722] p-2.5 rounded-lg border border-[#1b2230]">
-          <p className="font-semibold text-slate-300 mb-0.5 text-[11px]">Outcome Evidence:</p>
-          <p className="text-[11px] leading-relaxed text-slate-400">{episode.task.outcome_evidence}</p>
+        <div className="text-xs text-slate-500 max-w-md bg-white p-2.5 rounded-lg border border-slate-200">
+          <p className="font-semibold text-slate-600 mb-0.5 text-[11px]">Outcome Evidence:</p>
+          <p className="text-[11px] leading-relaxed text-slate-500">{episode.task.outcome_evidence}</p>
         </div>
       </div>
+
+      {/* Sub-intents: phases of the task */}
+      <SubtaskStrip
+        subtasks={episode.subtasks ?? []}
+        actions={episode.actions}
+        currentTime={currentTime}
+        selectedActionId={selectedActionId}
+        onSelectAction={(id) => setSelectedActionId(id)}
+        onSeek={handleSeek}
+      />
 
       {/* Main Grid: Video Player (Left) + Side Panel Inspector (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -396,10 +411,10 @@ function EpisodeShellPageContent() {
 
           {/* Pending Questions Card */}
           {episode.pending_questions && episode.pending_questions.length > 0 && (
-            <div className="rounded-xl border border-emerald-800/60 bg-emerald-950/20 p-3.5 space-y-2">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs font-mono uppercase text-emerald-400 font-bold">
-                  <HelpCircle className="w-4 h-4 text-emerald-400" />
+                <span className="flex items-center gap-1.5 text-xs uppercase font-medium text-emerald-700 font-bold">
+                  <HelpCircle className="w-4 h-4 text-emerald-700" />
                   Copilot Clarification Pending
                 </span>
                 <Badge variant="why" className="text-[10px]">
@@ -407,9 +422,9 @@ function EpisodeShellPageContent() {
                 </Badge>
               </div>
               {episode.pending_questions.map((pq) => (
-                <div key={pq.id} className="text-xs space-y-1 bg-[#101918]/80 p-3 rounded-lg border border-emerald-900/40">
-                  <p className="text-slate-200 font-medium">&ldquo;{pq.question}&rdquo;</p>
-                  <p className="text-[11px] text-slate-400 font-mono">
+                <div key={pq.id} className="text-xs space-y-1 bg-white p-3 rounded-lg border border-emerald-200">
+                  <p className="text-slate-800 font-medium">&ldquo;{pq.question}&rdquo;</p>
+                  <p className="text-[11px] text-slate-500 font-mono">
                     Target: {pq.action_ref} · Triggered because why_matters is true with no stated reason
                   </p>
                 </div>
@@ -457,6 +472,17 @@ function EpisodeShellPageContent() {
         onPlayUtterance={handlePlayUtterance}
       />
 
+      {/* Seen vs Said script */}
+      <ScriptView
+        actions={episode.actions}
+        narration={episode.narration}
+        currentTime={currentTime}
+        selectedActionId={selectedActionId}
+        onSelectAction={(id) => setSelectedActionId(id)}
+        onSeek={handleSeek}
+        onPlayUtterance={handlePlayUtterance}
+      />
+
       {/* Export / Download Modal */}
       <ExportModal
         episode={episode}
@@ -472,7 +498,7 @@ export default function Page() {
   return (
     <React.Suspense
       fallback={
-        <div className="flex-1 flex items-center justify-center min-h-[60vh] text-slate-400 font-mono text-sm">
+        <div className="flex-1 flex items-center justify-center min-h-[60vh] text-slate-500 font-mono text-sm">
           Loading episode...
         </div>
       }

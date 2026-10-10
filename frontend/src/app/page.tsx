@@ -151,27 +151,27 @@ function CapturePageContent() {
       />
 
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-[#1b212f] pb-4">
+      <header className="flex items-center justify-between border-b border-slate-200 pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-mono font-bold text-sm shadow-[0_0_12px_rgba(34,197,94,0.2)]">
+          <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center text-white font-semibold text-sm">
             VP
           </div>
           <div>
-            <h1 className="text-lg font-semibold tracking-tight text-white flex items-center gap-2">
+            <h1 className="text-lg font-semibold tracking-tight text-slate-900 flex items-center gap-2">
               VoicePraxis
-              <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono border border-slate-700">
+              <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-mono border border-slate-200">
                 MVP
               </span>
             </h1>
-            <p className="text-xs text-slate-400">
-              Multimodal Robot Imitation · Spoken Intent &amp; Why-Reasoning
+            <p className="text-xs text-slate-500">
+              Task-level annotation from narrated video
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           {forceMock ? (
-            <Badge variant="outline" className="text-[11px] gap-1.5 py-1 text-orange-400 border-orange-900/60 bg-orange-950/20 font-mono">
+            <Badge variant="outline" className="text-[11px] gap-1.5 py-1 text-orange-700 border-orange-200 bg-orange-50 font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
               Mock data
             </Badge>
@@ -189,17 +189,17 @@ function CapturePageContent() {
       </header>
 
       {/* Hero Guidance Card & Saved Episode Link */}
-      <div className="rounded-xl border border-[#202738] bg-gradient-to-r from-[#121622] via-[#0f141f] to-[#121622] p-4 sm:p-5 shadow-lg">
+      <div className="rounded-xl border border-slate-200     p-4 sm:p-5 shadow-sm">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-emerald-400">
+            <div className="flex items-center gap-2 text-xs uppercase font-medium tracking-wider text-emerald-700">
               <Sparkles className="w-3.5 h-3.5" />
-              Performer Prompt Card
+              How to record
             </div>
-            <p className="text-sm font-medium text-slate-200">
+            <p className="text-sm font-medium text-slate-800">
               &ldquo;Do any small task with these. Talk as you go: what you&rsquo;re doing and why.&rdquo;
             </p>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               State intent before starting, explain decisions while acting, and narrate recoveries.
             </p>
           </div>
@@ -209,12 +209,12 @@ function CapturePageContent() {
             <button
               type="button"
               onClick={() => router.push(`/e/${savedEpisode.id}`)}
-              className="shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-950/70 border border-emerald-700/80 hover:bg-emerald-900/80 text-emerald-300 transition-all cursor-pointer shadow-[0_0_12px_rgba(34,197,94,0.2)] text-xs font-mono"
+              className="shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-50 border border-emerald-200 hover:bg-emerald-50 text-emerald-700 transition-all cursor-pointer text-xs font-mono"
             >
-              <FileCheck2 className="w-4 h-4 text-emerald-400" />
+              <FileCheck2 className="w-4 h-4 text-emerald-700" />
               <div className="text-left">
-                <div className="font-semibold text-emerald-200">{savedEpisode.label}</div>
-                <div className="text-[10px] text-emerald-400/80">Task: {savedEpisode.task}</div>
+                <div className="font-semibold text-emerald-800">{savedEpisode.label}</div>
+                <div className="text-[10px] text-emerald-700">Task: {savedEpisode.task}</div>
               </div>
               <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </button>
@@ -226,11 +226,11 @@ function CapturePageContent() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Big Record & Upload Actions */}
         <div className="lg:col-span-8 space-y-4">
-          <Card className="border-[#1e2433] bg-[#11141d]/95 shadow-2xl relative overflow-hidden">
+          <Card className="border-slate-200 bg-white shadow-sm relative overflow-hidden">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center justify-between">
-                <span>Demonstration Ingest</span>
-                <span className="text-xs font-mono text-slate-400 font-normal">
+                <span>New recording</span>
+                <span className="text-xs font-mono text-slate-500 font-normal">
                   Target: 25–35 s (up to 90 s) · Max 200 MB
                 </span>
               </CardTitle>
@@ -252,10 +252,10 @@ function CapturePageContent() {
                 >
                   <div className="flex items-center gap-2 text-base font-bold">
                     <Camera className="w-5 h-5" />
-                    Record Demonstration
+                    Record a task
                   </div>
-                  <span className="text-[11px] font-normal text-emerald-950">
-                    Opens phone camera directly (environment)
+                  <span className="text-xs font-normal text-slate-300">
+                    Opens the phone camera
                   </span>
                 </Button>
 
@@ -263,15 +263,15 @@ function CapturePageContent() {
                   type="button"
                   variant="secondary"
                   size="lg"
-                  className="h-20 flex-col items-center justify-center gap-1.5 rounded-xl border-[#2a3449] hover:border-[#3d4b68] cursor-pointer"
+                  className="h-20 flex-col items-center justify-center gap-1.5 rounded-xl border-slate-200 hover:border-slate-200 cursor-pointer"
                   onClick={() => uploadInputRef.current?.click()}
                   disabled={isUploading}
                 >
-                  <div className="flex items-center gap-2 text-base font-semibold text-slate-200">
-                    <Upload className="w-5 h-5 text-sky-400" />
+                  <div className="flex items-center gap-2 text-base font-semibold text-slate-800">
+                    <Upload className="w-5 h-5 text-sky-700" />
                     Upload Video File
                   </div>
-                  <span className="text-[11px] font-normal text-slate-400">
+                  <span className="text-[11px] font-normal text-slate-500">
                     Browse MP4 / MOV from local library
                   </span>
                 </Button>
@@ -287,19 +287,19 @@ function CapturePageContent() {
                 onDrop={handleDrop}
                 className={`border-2 border-dashed rounded-xl p-6 sm:p-8 text-center transition-all ${
                   isDragging
-                    ? "border-emerald-500 bg-emerald-950/20 shadow-[0_0_20px_rgba(34,197,94,0.15)]"
-                    : "border-[#22293a] bg-[#0c0e14]/60 hover:border-[#2f3950]"
+                    ? "border-emerald-300 bg-emerald-50"
+                    : "border-slate-200 bg-white hover:border-slate-200"
                 }`}
               >
-                <div className="mx-auto w-12 h-12 rounded-full bg-slate-800/60 border border-slate-700/60 flex items-center justify-center text-slate-300 mb-3">
-                  <FileVideo className="w-6 h-6 text-sky-400" />
+                <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 mb-3">
+                  <FileVideo className="w-6 h-6 text-sky-700" />
                 </div>
-                <p className="text-sm font-medium text-slate-200 mb-1">
+                <p className="text-sm font-medium text-slate-800 mb-1">
                   {selectedFile ? selectedFile.name : "Drag & drop video clip here"}
                 </p>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
                   {selectedFile ? (
-                    <span className="text-emerald-400 font-mono font-medium">
+                    <span className="text-emerald-700 font-mono font-medium">
                       {formatFileSize(selectedFile.size)} · Ready to upload
                     </span>
                   ) : (
@@ -310,11 +310,11 @@ function CapturePageContent() {
 
               {/* Validation Error Message */}
               {fileError && (
-                <div className="rounded-lg border border-red-800/80 bg-red-950/40 p-3.5 text-xs text-red-300 flex items-start justify-between gap-2.5">
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3.5 text-xs text-red-700 flex items-start justify-between gap-2.5">
                   <div className="flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                    <AlertCircle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-semibold text-red-200">Upload Issue</p>
+                      <p className="font-semibold text-red-800">Upload Issue</p>
                       <p>{fileError}</p>
                     </div>
                   </div>
@@ -324,7 +324,7 @@ function CapturePageContent() {
                       variant="secondary"
                       size="sm"
                       onClick={startUpload}
-                      className="shrink-0 h-7 text-xs gap-1 border-red-800 bg-red-900/40 text-red-200 hover:bg-red-900/60 cursor-pointer"
+                      className="shrink-0 h-7 text-xs gap-1 border-red-200 bg-red-50 text-red-800 hover:bg-red-50 cursor-pointer"
                     >
                       <RotateCcw className="w-3 h-3" />
                       Retry
@@ -335,18 +335,18 @@ function CapturePageContent() {
 
               {/* Upload Progress Bar with XHR Progress */}
               {isUploading && uploadProgress && (
-                <div className="space-y-2 rounded-xl border border-[#232b3d] bg-[#0d1017] p-4">
+                <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
                   <div className="flex justify-between items-center text-xs">
-                    <span className="font-medium text-slate-200 flex items-center gap-2">
+                    <span className="font-medium text-slate-800 flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                       Uploading demonstration clip...
                     </span>
-                    <span className="font-mono text-emerald-400 font-semibold">
+                    <span className="font-mono text-emerald-700 font-semibold">
                       {uploadProgress.percent}%
                     </span>
                   </div>
                   <Progress value={uploadProgress.percent} />
-                  <div className="flex justify-between text-[11px] font-mono text-slate-400">
+                  <div className="flex justify-between text-[11px] font-mono text-slate-500">
                     <span>{formatFileSize(uploadProgress.loaded)}</span>
                     <span>{formatFileSize(uploadProgress.total)}</span>
                   </div>
@@ -355,9 +355,9 @@ function CapturePageContent() {
 
               {/* Upload Confirmation Action */}
               {selectedFile && !isUploading && (
-                <div className="pt-2 flex items-center justify-between border-t border-[#1a1f2c]">
-                  <div className="text-xs text-slate-400">
-                    Selected: <span className="font-mono text-slate-200">{selectedFile.name}</span> (
+                <div className="pt-2 flex items-center justify-between border-t border-slate-200">
+                  <div className="text-xs text-slate-500">
+                    Selected: <span className="font-mono text-slate-800">{selectedFile.name}</span> (
                     {formatFileSize(selectedFile.size)})
                   </div>
                   <Button
@@ -377,13 +377,13 @@ function CapturePageContent() {
 
         {/* Right Column: Desktop QR Code */}
         <div className="lg:col-span-4 space-y-4">
-          <Card className="border-[#1e2433] bg-[#11141d]/95 p-5 shadow-xl hidden lg:block text-center">
-            <div className="flex items-center justify-center gap-2 text-xs font-mono uppercase text-slate-400 mb-3">
-              <QrCode className="w-4 h-4 text-emerald-400" />
+          <Card className="border-slate-200 bg-white p-5 shadow-sm hidden lg:block text-center">
+            <div className="flex items-center justify-center gap-2 text-xs uppercase font-medium text-slate-500 mb-3">
+              <QrCode className="w-4 h-4 text-emerald-700" />
               <span>Record from Phone</span>
             </div>
 
-            <div className="bg-white p-3 rounded-xl inline-block mx-auto shadow-md">
+            <div className="bg-white p-3 rounded-xl inline-block mx-auto shadow-sm">
               <QRCodeSVG
                 value={currentUrl}
                 size={160}
@@ -394,33 +394,33 @@ function CapturePageContent() {
             </div>
 
             <div className="mt-3.5 space-y-1">
-              <p className="text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5">
-                <Smartphone className="w-3.5 h-3.5 text-sky-400" />
+              <p className="text-xs font-semibold text-slate-800 flex items-center justify-center gap-1.5">
+                <Smartphone className="w-3.5 h-3.5 text-sky-700" />
                 <span>Scan with mobile camera</span>
               </p>
-              <p className="text-[11px] text-slate-400 leading-relaxed max-w-xs mx-auto">
+              <p className="text-[11px] text-slate-500 leading-relaxed max-w-xs mx-auto">
                 Open VoicePraxis directly on your phone to record with the back camera and neck mount.
               </p>
             </div>
           </Card>
 
           {/* Three Token Legend */}
-          <div className="rounded-xl border border-[#1b2230] bg-[#0c0f16] p-4 text-xs font-mono space-y-2">
-            <span className="text-[10px] uppercase text-slate-400 block font-bold">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs font-mono space-y-2">
+            <span className="text-[10px] uppercase text-slate-500 block font-bold">
               Color Language
             </span>
             <div className="space-y-1.5 text-[11px]">
-              <div className="flex items-center gap-2 text-sky-300">
+              <div className="flex items-center gap-2 text-sky-700">
                 <span className="w-2.5 h-2.5 rounded-full bg-sky-400" />
-                <span>🔵 Seen · Objective physical action</span>
+                <span>Seen · what the video shows</span>
               </div>
-              <div className="flex items-center gap-2 text-orange-300">
+              <div className="flex items-center gap-2 text-orange-700">
                 <span className="w-2.5 h-2.5 rounded-full bg-orange-400" />
-                <span>🟠 Said · Verbatim spoken transcript</span>
+                <span>Said · what the person says</span>
               </div>
-              <div className="flex items-center gap-2 text-emerald-300 font-semibold">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
-                <span>🟢 Why · The hero reason &amp; intent</span>
+              <div className="flex items-center gap-2 text-emerald-700 font-semibold">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                <span>Why · reasons and intent, linked to steps</span>
               </div>
             </div>
           </div>
@@ -428,17 +428,17 @@ function CapturePageContent() {
       </div>
 
       {/* Footer */}
-      <footer className="pt-4 border-t border-[#1b212f] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+      <footer className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
         <div className="flex items-center gap-2">
-          <Cpu className="w-4 h-4 text-slate-400" />
-          <span>Gemini Multimodal Pipeline · Awign Labelling Hierarchy</span>
+          <Cpu className="w-4 h-4 text-slate-500" />
+          <span>Scene → Task → Sub-intent → Action · JSON export</span>
         </div>
         {savedEpisode && (
           <div className="flex items-center gap-4">
             <button
               type="button"
               onClick={() => router.push(`/e/${savedEpisode.id}`)}
-              className="text-emerald-400 hover:text-emerald-300 underline font-mono cursor-pointer flex items-center gap-1"
+              className="text-emerald-700 hover:text-emerald-700 underline font-mono cursor-pointer flex items-center gap-1"
             >
               <span>{savedEpisode.label}</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -454,7 +454,7 @@ export default function Page() {
   return (
     <React.Suspense
       fallback={
-        <div className="flex-1 flex items-center justify-center min-h-[60vh] text-slate-400 font-mono text-sm">
+        <div className="flex-1 flex items-center justify-center min-h-[60vh] text-slate-500 font-mono text-sm">
           Loading capture...
         </div>
       }

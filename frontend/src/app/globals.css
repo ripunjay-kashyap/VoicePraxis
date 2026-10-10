@@ -1,36 +1,36 @@
 @import "tailwindcss";
 
 :root {
-  --background: #090a0f;
-  --foreground: #f1f5f9;
-  --card: #11141d;
-  --card-foreground: #f1f5f9;
-  --popover: #11141d;
-  --popover-foreground: #f1f5f9;
-  --border: #1e2433;
-  --input: #1e2433;
-  --ring: #22c55e;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #2563eb;
 
-  /* Theme tokens: seen (blue), said (orange), why (green, hero), missed (red), info (blue-grey) */
-  --seen: #38bdf8;
-  --seen-muted: #0284c7;
-  --seen-bg: rgba(56, 189, 248, 0.12);
+  /* Colour language, muted for an enterprise UI: seen (blue), said (amber), why (green), missed (red), info (slate) */
+  --seen: #2563eb;
+  --seen-muted: #1d4ed8;
+  --seen-bg: #eff6ff;
 
-  --said: #fb923c;
-  --said-muted: #ea580c;
-  --said-bg: rgba(251, 146, 60, 0.12);
+  --said: #c2410c;
+  --said-muted: #9a3412;
+  --said-bg: #fff7ed;
 
-  --why: #22c55e;
-  --why-muted: #16a34a;
-  --why-bg: rgba(34, 197, 94, 0.15);
+  --why: #15803d;
+  --why-muted: #166534;
+  --why-bg: #f0fdf4;
 
-  --missed: #ef4444;
-  --missed-muted: #dc2626;
-  --missed-bg: rgba(239, 68, 68, 0.12);
+  --missed: #dc2626;
+  --missed-muted: #b91c1c;
+  --missed-bg: #fef2f2;
 
-  --info: #94a3b8;
-  --info-muted: #64748b;
-  --info-bg: rgba(148, 163, 184, 0.12);
+  --info: #64748b;
+  --info-muted: #475569;
+  --info-bg: #f1f5f9;
 }
 
 @theme inline {
@@ -70,5 +70,5 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
-  color-scheme: dark;
+  color-scheme: light;
 }

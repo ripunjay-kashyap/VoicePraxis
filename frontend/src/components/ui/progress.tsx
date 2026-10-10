@@ -14,14 +14,14 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
       <div
         ref={ref}
         className={cn(
-          "relative h-2 w-full overflow-hidden rounded-full bg-slate-900 border border-slate-800",
+          "relative h-2 w-full overflow-hidden rounded-full bg-slate-50 border border-slate-200",
           className
         )}
         {...props}
       >
         <div
           className={cn(
-            "h-full bg-emerald-500 transition-all duration-300 ease-out shadow-[0_0_8px_rgba(34,197,94,0.4)]",
+            "h-full bg-emerald-500 transition-all duration-300 ease-out",
             indicatorClassName
           )}
           style={{ width: `${clampedValue}%` }}

@@ -140,7 +140,7 @@ export function VideoPlayer({
     <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
-      className="relative rounded-xl overflow-hidden border border-[#202738] bg-black aspect-video flex items-center justify-center shadow-2xl group select-none"
+      className="relative rounded-xl overflow-hidden border border-slate-200 bg-black aspect-video flex items-center justify-center shadow-2xl group select-none"
     >
       <video
         ref={videoRef}
@@ -160,10 +160,10 @@ export function VideoPlayer({
         <button
           type="button"
           onClick={togglePlay}
-          className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/40 text-emerald-400 flex items-center justify-center hover:scale-105 hover:bg-black/80 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)] cursor-pointer"
+          className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-black/60 backdrop-blur-md border border-white/40 text-white flex items-center justify-center hover:scale-105 hover:bg-black/80 transition-all cursor-pointer"
           aria-label="Play Video"
         >
-          <Play className="w-8 h-8 fill-emerald-400 translate-x-0.5" />
+          <Play className="w-8 h-8 fill-white translate-x-0.5" />
         </button>
       )}
 
@@ -184,7 +184,7 @@ export function VideoPlayer({
             step={0.05}
             value={currentTime}
             onChange={handleScrubberChange}
-            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-400 focus:outline-none"
+            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-white focus:outline-none"
             style={{
               background: `linear-gradient(to right, #22c55e ${progressPercent}%, #1e293b ${progressPercent}%)`,
             }}
@@ -223,7 +223,7 @@ export function VideoPlayer({
 
             {/* Monospace Timecode */}
             <div className="font-mono text-xs text-slate-300 ml-1">
-              <span className="text-emerald-400 font-semibold">{formatTimestamp(currentTime, true)}</span>
+              <span className="text-white font-semibold">{formatTimestamp(currentTime, true)}</span>
               <span className="text-slate-500 mx-1">/</span>
               <span>{formatTimestamp(duration, true)}</span>
             </div>

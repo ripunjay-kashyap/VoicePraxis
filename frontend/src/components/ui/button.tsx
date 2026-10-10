@@ -8,19 +8,19 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-emerald-600 text-white shadow-sm hover:bg-emerald-500 active:scale-[0.98] transition-all",
+          "bg-slate-900 text-white shadow-sm hover:bg-slate-800 active:scale-[0.98] transition-all",
         why:
-          "bg-emerald-500 text-black font-semibold shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:bg-emerald-400 active:scale-[0.98] transition-all",
+          "bg-slate-900 text-white font-semibold hover:bg-slate-800 active:scale-[0.98] transition-all",
         seen:
-          "bg-sky-600/90 text-white shadow-sm hover:bg-sky-500 active:scale-[0.98]",
+          "bg-sky-600 text-white shadow-sm hover:bg-sky-500 active:scale-[0.98]",
         said:
-          "bg-orange-600/90 text-white shadow-sm hover:bg-orange-500 active:scale-[0.98]",
+          "bg-orange-600 text-white shadow-sm hover:bg-orange-500 active:scale-[0.98]",
         secondary:
-          "bg-[#1a202c] text-slate-200 border border-[#2d3748] hover:bg-[#242c3d] hover:text-white",
+          "bg-white text-slate-800 border border-slate-200 hover:bg-slate-50 hover:text-slate-900",
         outline:
-          "border border-[#232734] bg-transparent text-slate-300 hover:bg-[#161a24] hover:text-white",
+          "border border-slate-200 bg-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900",
         ghost:
-          "text-slate-400 hover:bg-[#1a1f2c] hover:text-slate-200",
+          "text-slate-500 hover:bg-slate-100 hover:text-slate-800",
         destructive:
           "bg-red-600 text-white hover:bg-red-500 shadow-sm",
       },

@@ -6,6 +6,7 @@
 export type ProcessingStage =
   | "uploaded"
   | "converting"
+  | "listening"
   | "analysing"
   | "linking"
   | "ready"
@@ -36,6 +37,7 @@ export type TaskOutcome = "success" | "failed" | "unresolved";
 
 export interface EpisodeTask {
   name: string;
+  summary?: string;
   declared_intent: DeclaredIntent | null;
   outcome: TaskOutcome;
   outcome_evidence: string;
@@ -69,12 +71,12 @@ export type ActionReviewStatus =
   | "rejected"
   | string;
 
+/** As stored by the backend: {field, old, new, at (unix seconds)} */
 export interface HumanCorrection {
   field: string;
-  old_value: unknown;
-  new_value: unknown;
-  corrected_at: string;
-  reason?: string;
+  old: unknown;
+  new: unknown;
+  at: number;
 }
 
 export interface EpisodeAction {
@@ -82,6 +84,11 @@ export interface EpisodeAction {
   start: number;
   end: number;
   observed_action: string;
+  /** Task-level label: verb from a fixed vocabulary, object and tool (null = hands only) */
+  verb?: string;
+  object?: string;
+  tool?: string | null;
+  subtask_ref?: string | null;
   instruction: string;
   visual_evidence: string;
   stated_reason: StatedReason | null;
@@ -92,6 +99,18 @@ export interface EpisodeAction {
   uncertainty: string[];
   review_status: ActionReviewStatus;
   human_corrections: HumanCorrection[];
+}
+
+/** Sub-intent: a phase of the task grouping consecutive actions */
+export interface EpisodeSubtask {
+  id: string;
+  start: number;
+  end: number;
+  goal: string;
+  stated_intent: StatedReason | null;
+  inferred_intent: string | null;
+  uncertainty: string[];
+  action_refs: string[];
 }
 
 export type PendingQuestionKind = "no_reason" | "unclear" | "failure";
@@ -121,6 +140,7 @@ export interface Episode {
   scene: string;
   task: EpisodeTask;
   narration: NarrationUtterance[];
+  subtasks?: EpisodeSubtask[];
   actions: EpisodeAction[];
   pending_questions: PendingQuestion[];
   clarifications: Clarification[];

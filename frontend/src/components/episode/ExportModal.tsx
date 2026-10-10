@@ -63,10 +63,10 @@ export function ExportModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <Card className="max-w-3xl w-full border-[#222a3c] bg-[#0d1017] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
-        <CardHeader className="p-4 border-b border-[#1b2230] flex flex-row items-center justify-between">
+      <Card className="max-w-3xl w-full border-slate-200 bg-white shadow-sm flex flex-col max-h-[85vh] overflow-hidden">
+        <CardHeader className="p-4 border-b border-slate-200 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-            <FileCode className="w-5 h-5 text-emerald-400" />
+            <FileCode className="w-5 h-5 text-emerald-700" />
             <CardTitle className="text-base">Export Training Data</CardTitle>
             <Badge variant="why" className="text-[10px] font-mono">
               v0.2 Standard
@@ -76,7 +76,7 @@ export function ExportModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+            className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-900 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -85,14 +85,14 @@ export function ExportModal({
         <CardContent className="p-4 space-y-4 flex-1 overflow-hidden flex flex-col">
           {/* Toggle View Mode */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 p-1 rounded-lg bg-[#141924] border border-[#1f2738]">
+            <div className="flex items-center gap-1.5 p-1 rounded-lg bg-white border border-slate-200">
               <button
                 type="button"
                 onClick={() => setViewMode("step")}
                 className={`px-3 py-1 rounded text-xs font-mono transition-all cursor-pointer ${
                   viewMode === "step"
-                    ? "bg-emerald-500 text-black font-semibold shadow"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-emerald-500 text-white font-semibold shadow"
+                    : "text-slate-500 hover:text-slate-900"
                 }`}
               >
                 Selected Step Preview
@@ -102,8 +102,8 @@ export function ExportModal({
                 onClick={() => setViewMode("episode")}
                 className={`px-3 py-1 rounded text-xs font-mono transition-all cursor-pointer ${
                   viewMode === "episode"
-                    ? "bg-emerald-500 text-black font-semibold shadow"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-emerald-500 text-white font-semibold shadow"
+                    : "text-slate-500 hover:text-slate-900"
                 }`}
               >
                 Full Episode JSON
@@ -114,11 +114,11 @@ export function ExportModal({
               variant="outline"
               size="sm"
               onClick={handleCopy}
-              className="h-8 gap-1.5 text-xs font-mono cursor-pointer border-slate-700 hover:border-emerald-500"
+              className="h-8 gap-1.5 text-xs font-mono cursor-pointer border-slate-200 hover:border-emerald-300"
             >
               {isCopied ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <Check className="w-3.5 h-3.5 text-emerald-700" />
                   Copied!
                 </>
               ) : (
@@ -131,13 +131,13 @@ export function ExportModal({
           </div>
 
           {/* Syntax-highlighted code container */}
-          <div className="flex-1 overflow-y-auto rounded-lg border border-[#1b2332] bg-[#07090e] p-3 text-xs font-mono text-emerald-300/90 leading-relaxed">
+          <div className="flex-1 overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 text-xs font-mono text-emerald-700 leading-relaxed">
             <pre className="whitespace-pre-wrap">{jsonString}</pre>
           </div>
 
           {/* Action Download Buttons with plain HTML links for Safari (P0.4) */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#1a1f2c]">
-            <p className="text-[11px] text-slate-400 font-mono">
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200">
+            <p className="text-[11px] text-slate-500 font-mono">
               Server-generated exports with verified human corrections
             </p>
 
@@ -145,16 +145,16 @@ export function ExportModal({
               <a
                 href={jsonExportUrl}
                 download={`voicepraxis-${episode.episode_id}.json`}
-                className="inline-flex items-center justify-center gap-2 rounded-lg text-xs font-mono font-medium h-9 px-4 bg-[#1a202c] text-slate-200 border border-[#2d3748] hover:bg-[#242c3d] hover:text-white transition-colors flex-1 sm:flex-initial"
+                className="inline-flex items-center justify-center gap-2 rounded-lg text-xs font-mono font-medium h-9 px-4 bg-white text-slate-800 border border-slate-200 hover:bg-white hover:text-slate-900 transition-colors flex-1 sm:flex-initial"
               >
-                <Download className="w-3.5 h-3.5 text-sky-400" />
+                <Download className="w-3.5 h-3.5 text-sky-700" />
                 Download JSON
               </a>
 
               <a
                 href={zipExportUrl}
                 download={`voicepraxis-${episode.episode_id}.zip`}
-                className="inline-flex items-center justify-center gap-2 rounded-lg text-xs font-mono font-semibold h-9 px-4 bg-emerald-500 text-black shadow-[0_0_12px_rgba(34,197,94,0.3)] hover:bg-emerald-400 transition-colors flex-1 sm:flex-initial"
+                className="inline-flex items-center justify-center gap-2 rounded-lg text-xs font-mono font-semibold h-9 px-4 bg-emerald-500 text-white hover:bg-emerald-400 transition-colors flex-1 sm:flex-initial"
               >
                 <Package className="w-3.5 h-3.5" />
                 Training Bundle (.zip)
