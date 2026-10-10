@@ -131,8 +131,8 @@ def api():
     web = FastAPI(title="VoicePraxis")
     web.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"],
-        allow_origin_regex=r"https://.*\.vercel\.app",
+        # Vercel previews/production, any localhost port, and LAN dev servers (phone testing)
+        allow_origin_regex=r"https://.*\.vercel\.app|http://(localhost|127\.0\.0\.1)(:\d+)?|http://(192\.168|10)\.\d+\.\d+(\.\d+)?(:\d+)?",
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
