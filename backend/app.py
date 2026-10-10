@@ -33,6 +33,7 @@ image = (
 app = modal.App(APP_NAME, image=image)
 volume = modal.Volume.from_name("vp-videos", create_if_missing=True)
 episodes = modal.Dict.from_name("vp-episodes", create_if_missing=True)
+templates = modal.Dict.from_name("vp-templates", create_if_missing=True)
 flags_secret = modal.Secret.from_name("vp-flags")
 gemini_secret = modal.Secret.from_name("gemini")
 
@@ -119,6 +120,20 @@ def process_episode(episode_id: str) -> None:
                            transcript=transcript or None)
         if info.hdr:
             episode["task"]["uncertainty"].append("Recorded in HDR; colours in playback may look washed out.")
+
+        # Feature hook (TEMPLATES): check against the chosen template; never blocks the episode.
+        template_check = None
+        template_id = record.get("template_id")
+        if template_id and flags()["TEMPLATES"]:
+            try:
+                from features.templates import check
+
+                template = templates.get(template_id)
+                if template:
+                    update(episode_id, stage="checking")
+                    template_check = check(pool, template, episode)
+            except Exception as e:
+                print(f"[templates] {episode_id} failed: {type(e).__name__}: {e}")
         update(
             episode_id,
             status="ready",
@@ -128,7 +143,8 @@ def process_episode(episode_id: str) -> None:
             model_output=episode,
             corrections=[],
             video_only_output=camera_result,
-            template_id=None,
+            template_id=template_id,
+            template_check=template_check,
             timings={"convert_s": round(convert_s, 1), "stt_s": meta.get("stt_s"), "upload_s": meta["upload_s"],
                      "generation_s": meta["generation_s"], "total_s": round(time.time() - t0, 1)},
         )
@@ -144,7 +160,7 @@ def process_episode(episode_id: str) -> None:
     region="ap",  # F10: Mumbai routing measured ~3 s vs ~18 s (default) for a 30 MB upload
     routing_region="ap-south",  # can only be set on the first deploy of this function
     volumes={VOL_PATH: volume},
-    secrets=[flags_secret],
+    secrets=[flags_secret, gemini_secret],
     max_containers=1,  # one container: video cache and uploads in one place
     scaledown_window=300,
     timeout=600,
@@ -152,7 +168,7 @@ def process_episode(episode_id: str) -> None:
 @modal.concurrent(max_inputs=50)
 @modal.asgi_app()
 def api():
-    from fastapi import FastAPI, File, HTTPException, UploadFile
+    from fastapi import FastAPI, File, Form, HTTPException, UploadFile
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import FileResponse
 
@@ -183,7 +199,7 @@ def api():
         return {"flags": flags(), "version": "mvp-dev"}
 
     @web.post("/episodes", status_code=201)
-    async def create_episode(file: UploadFile = File(...)):
+    async def create_episode(file: UploadFile = File(...), template_id: str | None = Form(None)):
         ext = Path(file.filename or "").suffix.lower()
         if not ((file.content_type or "").startswith("video/") or ext in VIDEO_EXTS):
             raise HTTPException(415, "That file isn't a video. Record or choose a video clip.")
@@ -211,6 +227,7 @@ def api():
             "created_at": time.time(),
             "original": dest.name,
             "bytes": size,
+            "template_id": template_id if template_id and templates.get(template_id) else None,
         }
         process_episode.spawn(episode_id)
         return {"id": episode_id, "bytes": size, "receive_s": round(receive_s, 2)}
@@ -224,7 +241,95 @@ def api():
         model_output = record.get("model_output")
         out["episode"] = apply(model_output, record.get("corrections") or []) if model_output else None
         out["video_only"] = record.get("video_only_output")
+        if out["episode"] is not None:
+            out["episode"]["template_check"] = record.get("template_check")
         return out
+
+    # ---- TEMPLATES (feature) ----
+    def get_template(template_id: str) -> dict:
+        t = templates.get(template_id) if re.fullmatch(r"tpl-[a-z0-9]{1,16}", template_id or "") else None
+        if t is None:
+            raise HTTPException(404, "Template not found")
+        return t
+
+    @web.get("/templates")
+    def list_templates():
+        rows = [{"id": k, "name": t["name"], "task": t.get("task"), "steps": len(t["steps"]),
+                 "created_at": t["created_at"], "source_episode_id": t.get("source_episode_id")}
+                for k, t in templates.items()]
+        return sorted(rows, key=lambda r: -r["created_at"])
+
+    @web.get("/templates/{template_id}")
+    def read_template(template_id: str):
+        return get_template(template_id)
+
+    @web.post("/templates", status_code=201)
+    def create_template(body: dict):
+        from pipeline.corrections import apply
+        from features.templates import new_template
+
+        source = get_record(str(body.get("episode_id", "")))
+        if source.get("status") != "ready":
+            raise HTTPException(409, "The reference episode isn't ready yet.")
+        episode = apply(source["model_output"], source.get("corrections") or [])
+        steps = None
+        if isinstance(body.get("steps"), list):
+            steps = [
+                {"id": f"t{i:02d}", "instruction": str(st.get("instruction", "")).strip(),
+                 "verb": st.get("verb"), "object": st.get("object"),
+                 "reference_reason": st.get("reference_reason") or None, "required": bool(st.get("required", True))}
+                for i, st in enumerate(body["steps"], 1) if isinstance(st, dict) and str(st.get("instruction", "")).strip()
+            ]
+            if not steps:
+                raise HTTPException(422, "A template needs at least one step.")
+        t = new_template(str(body.get("name") or ""), source["id"], episode, steps)
+        templates[t["id"]] = t
+        return t
+
+    @web.patch("/templates/{template_id}")
+    def edit_template(template_id: str, body: dict):
+        t = get_template(template_id)
+        if isinstance(body.get("name"), str) and body["name"].strip():
+            t["name"] = body["name"].strip()
+        if isinstance(body.get("steps"), list):
+            steps = []
+            for i, s in enumerate(body["steps"], 1):
+                if not isinstance(s, dict) or not str(s.get("instruction", "")).strip():
+                    raise HTTPException(422, "Every step needs an instruction.")
+                steps.append({"id": s.get("id") or f"t{i:02d}", "instruction": str(s["instruction"]).strip(),
+                              "verb": s.get("verb"), "object": s.get("object"),
+                              "reference_reason": s.get("reference_reason") or None, "required": bool(s.get("required", True))})
+            if not steps:
+                raise HTTPException(422, "A template needs at least one step.")
+            t["steps"] = steps
+        templates[template_id] = t
+        return t
+
+    @web.delete("/templates/{template_id}")
+    def delete_template(template_id: str):
+        get_template(template_id)
+        templates.pop(template_id)
+        return {"deleted": template_id}
+
+    @web.post("/episodes/{episode_id}/check")
+    def check_episode(episode_id: str, body: dict):
+        """Run (or re-run) a template check on an existing episode, with its corrections applied."""
+        from pipeline.corrections import apply
+        from pipeline.gemini import GeminiError, KeyPool
+        from features.templates import check
+
+        if not flags()["TEMPLATES"]:
+            raise HTTPException(404, "Templates are switched off.")
+        record = get_record(episode_id)
+        if record.get("status") != "ready":
+            raise HTTPException(409, "This episode isn't ready yet.")
+        template = get_template(str(body.get("template_id", "")))
+        episode = apply(record["model_output"], record.get("corrections") or [])
+        try:
+            result = check(KeyPool(), template, episode)
+        except GeminiError as e:
+            raise HTTPException(502, str(e))
+        return public(update(episode_id, template_id=template["id"], template_check=result))
 
     @web.get("/episodes")
     def list_episodes(limit: int = 20, saved: bool = False):

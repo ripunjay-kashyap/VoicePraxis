@@ -78,7 +78,8 @@ export async function fetchSavedEpisodes(): Promise<SavedEpisodeListItem[]> {
  */
 export function uploadEpisode(
   file: File,
-  onProgress?: (progress: UploadProgress) => void
+  onProgress?: (progress: UploadProgress) => void,
+  templateId?: string | null
 ): Promise<UploadResult> {
   const apiBase = getApiBase();
 
@@ -144,6 +145,7 @@ export function uploadEpisode(
 
     const formData = new FormData();
     formData.append("file", file, file.name);
+    if (templateId) formData.append("template_id", templateId);
 
     xhr.send(formData);
   });
@@ -390,4 +392,101 @@ export async function fetchFlags(): Promise<FeatureFlags> {
   } catch {
     return NO_FLAGS;
   }
+}
+
+// ---- TEMPLATES (feature) ----
+export interface TemplateSummary {
+  id: string;
+  name: string;
+  task: string | null;
+  steps: number;
+  created_at: number;
+  source_episode_id: string;
+}
+
+export async function fetchTemplates(): Promise<TemplateSummary[]> {
+  const apiBase = getApiBase();
+  if (!apiBase) return [];
+  try {
+    const res = await fetch(`${apiBase}/templates`, { cache: "no-store" });
+    return res.ok ? await res.json() : [];
+  } catch {
+    return [];
+  }
+}
+
+async function postJson(path: string, body: unknown): Promise<{ ok: boolean; data?: Record<string, unknown> & { name?: string; episode?: Episode; saved?: boolean; label?: string; video_only?: Episode | null; stage?: string; error?: string | null }; detail?: string }> {
+  const apiBase = getApiBase();
+  if (!apiBase) return { ok: false, detail: "Backend URL not configured." };
+  try {
+    const res = await fetch(`${apiBase}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    return res.ok ? { ok: true, data } : { ok: false, detail: data.detail || `Request failed (${res.status})` };
+  } catch {
+    return { ok: false, detail: "Network error. Check the connection and try again." };
+  }
+}
+
+export interface TemplateStep {
+  id?: string;
+  instruction: string;
+  verb?: string | null;
+  object?: string | null;
+  reference_reason?: string | null;
+  required: boolean;
+}
+
+export interface TemplateDetail {
+  id: string;
+  name: string;
+  task: string | null;
+  source_episode_id: string;
+  created_at: number;
+  steps: TemplateStep[];
+}
+
+export async function createTemplate(episodeId: string, name: string, steps?: TemplateStep[]) {
+  return postJson("/templates", { episode_id: episodeId, name, ...(steps ? { steps } : {}) });
+}
+
+export async function fetchTemplate(id: string): Promise<TemplateDetail | null> {
+  const apiBase = getApiBase();
+  if (!apiBase) return null;
+  try {
+    const res = await fetch(`${apiBase}/templates/${id}`, { cache: "no-store" });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteTemplate(id: string): Promise<boolean> {
+  const apiBase = getApiBase();
+  if (!apiBase) return false;
+  try {
+    const res = await fetch(`${apiBase}/templates/${id}`, { method: "DELETE" });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Run a template check on an existing episode; returns the updated episode on success. */
+export async function checkEpisode(episodeId: string, templateId: string): Promise<{ ok: boolean; episode?: Episode; detail?: string }> {
+  const r = await postJson(`/episodes/${episodeId}/check`, { template_id: templateId });
+  if (!r.ok || !r.data?.episode) return { ok: false, detail: r.detail };
+  return {
+    ok: true,
+    episode: {
+      ...r.data.episode,
+      saved: r.data.saved,
+      label: r.data.label,
+      video_only: r.data.video_only ?? null,
+      status: { stage: (r.data.stage || "ready") as ProcessingStage, error: r.data.error || null },
+    },
+  };
 }

@@ -9,6 +9,7 @@ export type ProcessingStage =
   | "listening"
   | "analysing"
   | "linking"
+  | "checking"
   | "ready"
   | "failed";
 
@@ -144,7 +145,7 @@ export interface Episode {
   actions: EpisodeAction[];
   pending_questions: PendingQuestion[];
   clarifications: Clarification[];
-  template_check: unknown | null;
+  template_check: TemplateCheck | null;
   video_only: Episode | null;
   human_corrections: HumanCorrection[];
   saved?: boolean;
@@ -184,4 +185,30 @@ export function formatTimestamp(seconds: number, includeSubseconds = false): str
 export function stepLabel(id: string): string {
   const n = parseInt(id.split("-").pop() || "", 10);
   return Number.isFinite(n) ? `Step ${n}` : id;
+}
+
+/** Result of checking a take against a template (decided by backend code, not the model) */
+export interface TemplateCheckStep {
+  template_step_id: string;
+  instruction: string;
+  required: boolean;
+  status: "complete" | "not_narrated" | "no_reason" | "said_not_seen" | "missed" | "deliberate_skip" | "different_reason" | "unclear";
+  label: string;
+  severity: "ok" | "gap" | "problem" | "info";
+  message: string;
+  action_ref: string | null;
+  time: number | null;
+  confidence: number;
+  out_of_order?: boolean;
+}
+
+export interface TemplateCheck {
+  template_id: string;
+  template_name: string;
+  checked_at: number;
+  steps: TemplateCheckStep[];
+  extras: { action_ref: string; time: number; severity: string; label: string; message: string }[];
+  counts: Record<string, number>;
+  complete: number;
+  total: number;
 }

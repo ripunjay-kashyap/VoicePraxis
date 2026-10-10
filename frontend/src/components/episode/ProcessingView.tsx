@@ -17,6 +17,7 @@ import {
   UploadCloud,
   FileCheck2,
   Mic,
+  ListChecks,
 } from "lucide-react";
 
 interface ProcessingStep {
@@ -57,6 +58,12 @@ const ORDERED_STAGES: ProcessingStep[] = [
     description: "Connecting each reason to its step",
     icon: Sparkles,
   },
+  {
+    stage: "checking",
+    label: "Checking against template",
+    description: "Comparing with the expert's reference, step by step",
+    icon: ListChecks,
+  },
 ];
 
 interface ProcessingViewProps {
@@ -85,21 +92,11 @@ export function ProcessingView({
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
+  // Position in the ordered list; "ready" is past the end, unknown stages count as the first.
   const getStageIndex = (s: ProcessingStage): number => {
-    switch (s) {
-      case "uploaded":
-        return 0;
-      case "converting":
-        return 1;
-      case "analysing":
-        return 2;
-      case "linking":
-        return 3;
-      case "ready":
-        return 4;
-      default:
-        return 0;
-    }
+    if (s === "ready") return ORDERED_STAGES.length;
+    const i = ORDERED_STAGES.findIndex((st) => st.stage === s);
+    return i === -1 ? 0 : i;
   };
 
   const currentIdx = getStageIndex(stage);
@@ -168,7 +165,7 @@ export function ProcessingView({
           ) : (
             /* Progress Stepper */
             <div className="space-y-3">
-              {ORDERED_STAGES.map((step, idx) => {
+              {ORDERED_STAGES.filter((s) => s.stage !== "checking" || stage === "checking").map((step, idx) => {
                 const StepIcon = step.icon;
                 const isCompleted = currentIdx > idx;
                 const isCurrent = currentIdx === idx;

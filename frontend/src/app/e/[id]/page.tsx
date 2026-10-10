@@ -23,6 +23,7 @@ import { ThreeLaneTimeline } from "@/components/episode/ThreeLaneTimeline";
 import { SidePanel } from "@/components/episode/SidePanel";
 import { ProcessingView } from "@/components/episode/ProcessingView";
 import { SideBySide } from "@/components/episode/SideBySide";
+import { TemplatePanel } from "@/components/episode/TemplatePanel";
 import { SubtaskStrip } from "@/components/episode/SubtaskStrip";
 import { ScriptView } from "@/components/episode/ScriptView";
 import { ExportModal } from "@/components/episode/ExportModal";
@@ -270,6 +271,16 @@ function EpisodeShellPageContent() {
     }
   };
 
+  const checkMode = searchParams.get("mode") === "check" || Boolean(episode.template_check);
+  const templatePanel = (
+    <TemplatePanel
+      episode={episode}
+      episodeId={episode.episode_id || episodeId}
+      onEpisodeUpdate={setEpisode}
+      onSeek={handleSeek}
+    />
+  );
+
   return (
     <div className="flex-1 flex flex-col max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 space-y-4 sm:space-y-6">
       {/* Top Header Bar */}
@@ -346,6 +357,9 @@ function EpisodeShellPageContent() {
         </div>
       )}
 
+      {/* Template mode: the comparison comes first */}
+      {flags?.TEMPLATES && checkMode && templatePanel}
+
       {/* Task Intent & Outcome Banner */}
       <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm">
         <div className="space-y-1">
@@ -379,6 +393,9 @@ function EpisodeShellPageContent() {
       {flags?.SIDE_BY_SIDE && episode.video_only && (
         <SideBySide withNarration={episode} cameraOnly={episode.video_only} onSeek={handleSeek} />
       )}
+
+      {/* Feature: template check (TEMPLATES), lower position for normal reviews */}
+      {flags?.TEMPLATES && !checkMode && templatePanel}
 
       {/* Sub-intents: phases of the task */}
       <SubtaskStrip
