@@ -67,7 +67,7 @@ export function SideBySide({ withNarration, cameraOnly, onSeek }: SideBySideProp
       </header>
 
       {/* Column headings + each run's one-line summary */}
-      <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)] text-xs border-b border-slate-200 bg-slate-50">
+      <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,1fr)] text-xs border-b border-slate-200 bg-slate-50">
         <div />
         <div className="px-3 py-2.5 border-l border-slate-200">
           <p className="flex items-center gap-1.5 font-medium text-slate-700">
@@ -88,14 +88,14 @@ export function SideBySide({ withNarration, cameraOnly, onSeek }: SideBySideProp
           <li
             key={row.narr.id}
             className={cn(
-              "grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)] text-xs",
+              "grid grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,1fr)] text-xs",
               row.reasonOnlyFromNarration && "bg-emerald-50/40"
             )}
           >
             <button
               type="button"
               onClick={() => onSeek(row.narr.start)}
-              className="px-2 py-3 text-left text-slate-500 font-mono cursor-pointer hover:text-slate-900"
+              className="px-2 py-3 text-left text-slate-500 font-mono whitespace-nowrap cursor-pointer hover:text-slate-900"
               title="Play from here"
             >
               {formatTimestamp(row.narr.start)}
