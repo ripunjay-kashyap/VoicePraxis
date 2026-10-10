@@ -167,12 +167,7 @@ export function VideoPlayer({
         </button>
       )}
 
-      {/* Top watermark badge */}
-      <div className="absolute top-3 left-3 pointer-events-none flex items-center gap-2">
-        <span className="px-2 py-0.5 rounded bg-black/70 backdrop-blur-md text-[10px] font-mono text-slate-300 border border-slate-700/60">
-          H.264 · crossOrigin=&quot;anonymous&quot;
-        </span>
-      </div>
+
 
       {/* Bottom control bar overlay */}
       <div

@@ -1,4 +1,4 @@
-import { Episode, HumanCorrection } from "./episode";
+import { Episode, ProcessingStage } from "./episode";
 import { MOCK_EPISODE } from "./mock-episode";
 
 /**
@@ -13,7 +13,7 @@ export function getApiBase(): string {
 }
 
 /**
- * Checks if mock mode is requested either through query string or explicitly
+ * Checks if mock mode is explicitly requested through query string (?mock=1)
  */
 export function isMockMode(queryParam?: string | null): boolean {
   if (queryParam !== undefined && queryParam !== null) {
@@ -36,9 +36,45 @@ export interface UploadResult {
   id: string;
 }
 
+export interface SavedEpisodeListItem {
+  id: string;
+  status: string;
+  created_at: number;
+  saved: boolean;
+  label: string;
+  task: string;
+  duration: number;
+}
+
+export interface PatchChange {
+  target: "task" | string;
+  field: string;
+  value: unknown;
+}
+
 /**
- * Upload video with XMLHttpRequest progress tracking (required for iOS Safari progress reporting).
- * Posts multipart to POST {API}/episodes
+ * Fetch saved episodes list: GET /episodes?saved=true
+ */
+export async function fetchSavedEpisodes(): Promise<SavedEpisodeListItem[]> {
+  const apiBase = getApiBase();
+  if (!apiBase) return [];
+
+  try {
+    const res = await fetch(`${apiBase}/episodes?saved=true`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const list: SavedEpisodeListItem[] = await res.json();
+    return Array.isArray(list) ? list : [];
+  } catch (err) {
+    console.warn("Failed to fetch saved episodes:", err);
+    return [];
+  }
+}
+
+/**
+ * Upload video with XMLHttpRequest progress tracking.
+ * Strictly checks backend URL and parses { detail: "..." } errors.
  */
 export function uploadEpisode(
   file: File,
@@ -46,25 +82,10 @@ export function uploadEpisode(
 ): Promise<UploadResult> {
   const apiBase = getApiBase();
 
-  // If no backend API URL is configured or mock mode is forced in capture
   if (!apiBase) {
-    return new Promise((resolve) => {
-      let currentProgress = 0;
-      const interval = setInterval(() => {
-        currentProgress += 20;
-        if (onProgress) {
-          onProgress({
-            percent: Math.min(100, currentProgress),
-            loaded: (file.size * Math.min(100, currentProgress)) / 100,
-            total: file.size,
-          });
-        }
-        if (currentProgress >= 100) {
-          clearInterval(interval);
-          resolve({ id: "mock" });
-        }
-      }, 200);
-    });
+    return Promise.reject(
+      new Error("Backend URL not configured. Please set NEXT_PUBLIC_API_BASE in environment variables.")
+    );
   }
 
   return new Promise((resolve, reject) => {
@@ -100,18 +121,25 @@ export function uploadEpisode(
           reject(new Error(`Failed to parse response: ${err}`));
         }
       } else {
-        reject(
-          new Error(`Upload failed with HTTP ${xhr.status}: ${xhr.statusText || xhr.responseText}`)
-        );
+        let errorDetail = `Upload failed (${xhr.status})`;
+        try {
+          const errData = JSON.parse(xhr.responseText);
+          if (errData.detail) {
+            errorDetail = errData.detail;
+          }
+        } catch {
+          // keep fallback
+        }
+        reject(new Error(errorDetail));
       }
     };
 
     xhr.onerror = () => {
-      reject(new Error("Network error during episode upload"));
+      reject(new Error("Upload failed: check the connection and try again"));
     };
 
     xhr.ontimeout = () => {
-      reject(new Error("Episode upload request timed out"));
+      reject(new Error("Upload timed out: check the connection and try again"));
     };
 
     const formData = new FormData();
@@ -123,44 +151,98 @@ export function uploadEpisode(
 
 /**
  * Fetch episode details.
- * If mock is requested or id is 'mock', or backend is unreachable/unconfigured, returns MOCK_EPISODE.
+ * Rule 6: No fake data. Mock is only used if forceMock (?mock=1) is explicitly set.
+ * Otherwise, always calls GET /episodes/{id} on live API and throws clear errors.
  */
 export async function fetchEpisode(
   id: string,
   forceMock = false
 ): Promise<Episode> {
-  if (forceMock || id === "mock" || id === "ep_20261010_container_001") {
-    return MOCK_EPISODE;
+  if (forceMock || id === "mock") {
+    return {
+      ...MOCK_EPISODE,
+      episode_id: "mock-container",
+      label: "Mock Reference Container Task",
+    };
   }
 
   const apiBase = getApiBase();
   if (!apiBase) {
-    console.warn("NEXT_PUBLIC_API_BASE not set. Returning mock episode.");
-    return MOCK_EPISODE;
+    throw new Error(
+      "Backend URL not configured. Set NEXT_PUBLIC_API_BASE or append ?mock=1 to view mock data."
+    );
   }
 
-  try {
-    const res = await fetch(`${apiBase}/episodes/${id}`, {
-      cache: "no-store",
-    });
+  const res = await fetch(`${apiBase}/episodes/${id}`, {
+    cache: "no-store",
+  });
 
-    if (!res.ok) {
-      throw new Error(`Failed to fetch episode: ${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    let errorMsg = `Episode fetch failed with HTTP ${res.status}`;
+    try {
+      const errData = await res.json();
+      if (errData.detail) errorMsg = errData.detail;
+    } catch {
+      // ignore JSON parse error
     }
-
-    const data: Episode = await res.json();
-    return data;
-  } catch (error) {
-    console.warn("Error fetching real episode, falling back to mock:", error);
-    return MOCK_EPISODE;
+    throw new Error(errorMsg);
   }
+
+  const data = await res.json();
+
+  // If episode ready: unpack { id, status, stage, saved, label, episode: { ... } }
+  if (data.episode) {
+    return {
+      ...data.episode,
+      saved: data.saved,
+      label: data.label,
+      status: {
+        stage: (data.stage || data.status || "ready") as ProcessingStage,
+        error: data.error || null,
+      },
+    };
+  }
+
+  // If episode is still processing or failed: return state without inventing fake pipeline (P0.2)
+  if (data.stage || data.status) {
+    const currentStage = (data.stage || data.status) as ProcessingStage;
+    return {
+      schema_version: "0.2",
+      episode_id: data.id || id,
+      media_ref: "episode.mp4",
+      duration_seconds: data.duration || 0,
+      saved: data.saved,
+      label: data.label,
+      status: {
+        stage: currentStage,
+        error: data.error || null,
+      },
+      pipeline: null, // No fake pipeline invented!
+      scene: "",
+      task: {
+        name: "",
+        declared_intent: null,
+        outcome: "unresolved",
+        outcome_evidence: "",
+      },
+      narration: [],
+      actions: [],
+      pending_questions: [],
+      clarifications: [],
+      template_check: null,
+      video_only: null,
+      human_corrections: [],
+    };
+  }
+
+  return data as Episode;
 }
 
 /**
  * Returns playable video URL with range support.
  */
 export function getVideoUrl(id: string, forceMock = false): string {
-  if (forceMock || id === "mock" || id === "ep_20261010_container_001") {
+  if (forceMock || id === "mock") {
     return "/sample-video.mp4";
   }
 
@@ -173,45 +255,113 @@ export function getVideoUrl(id: string, forceMock = false): string {
 }
 
 /**
- * Patch action corrections preserving original model output (Rule 7).
+ * Patch episode changes using real contract:
+ * PATCH /episodes/{id}
+ * Body: { changes: [{ target: "action-01", field: "...", value: ... }] }
+ * Returns full updated episode from server (P0.1).
  */
-export async function patchEpisodeAction(
+export async function patchEpisodeChanges(
   episodeId: string,
-  actionId: string,
-  corrections: HumanCorrection[]
-): Promise<boolean> {
+  changes: PatchChange[]
+): Promise<{ success: boolean; episode?: Episode; detail?: string }> {
   const apiBase = getApiBase();
-  if (!apiBase || episodeId === "mock" || episodeId === "ep_20261010_container_001") {
-    // In mock mode, state updates locally in UI
-    return true;
+  if (!apiBase) {
+    return { success: false, detail: "Backend URL not configured." };
   }
 
   try {
-    const res = await fetch(`${apiBase}/episodes/${episodeId}/actions/${actionId}`, {
+    const res = await fetch(`${apiBase}/episodes/${episodeId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ corrections }),
+      body: JSON.stringify({ changes }),
     });
-    return res.ok;
-  } catch (err) {
-    console.warn("Failed to patch corrections to backend:", err);
-    return false;
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      return {
+        success: false,
+        detail: data?.detail || `Save failed with HTTP ${res.status}`,
+      };
+    }
+
+    if (data?.episode) {
+      return {
+        success: true,
+        episode: {
+          ...data.episode,
+          saved: data.saved,
+          label: data.label,
+          status: {
+            stage: (data.stage || data.status || "ready") as ProcessingStage,
+            error: data.error || null,
+          },
+        },
+      };
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Network error during save";
+    return { success: false, detail: message };
   }
 }
 
 /**
- * Trigger client-side download of episode.json
+ * Reset human corrections on a saved episode:
+ * POST /episodes/{id}/reset
+ * Returns full reset episode (P0.3).
  */
-export function downloadEpisodeJson(episode: Episode, filename?: string): void {
-  const dataStr =
-    "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(episode, null, 2));
-  const downloadAnchor = document.createElement("a");
-  downloadAnchor.setAttribute("href", dataStr);
-  downloadAnchor.setAttribute(
-    "download",
-    filename || `${episode.episode_id || "episode"}.json`
-  );
-  document.body.appendChild(downloadAnchor);
-  downloadAnchor.click();
-  downloadAnchor.remove();
+export async function resetSavedEpisode(
+  episodeId: string
+): Promise<{ success: boolean; episode?: Episode; detail?: string }> {
+  const apiBase = getApiBase();
+  if (!apiBase) {
+    return { success: false, detail: "Backend URL not configured." };
+  }
+
+  try {
+    const res = await fetch(`${apiBase}/episodes/${episodeId}/reset`, {
+      method: "POST",
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      return {
+        success: false,
+        detail: data?.detail || `Reset failed with HTTP ${res.status}`,
+      };
+    }
+
+    if (data?.episode) {
+      return {
+        success: true,
+        episode: {
+          ...data.episode,
+          saved: data.saved,
+          label: data.label,
+          status: {
+            stage: (data.stage || data.status || "ready") as ProcessingStage,
+            error: data.error || null,
+          },
+        },
+      };
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Network error during reset";
+    return { success: false, detail: message };
+  }
+}
+
+/**
+ * Get server export URL:
+ * GET /episodes/{id}/export?format=json
+ * GET /episodes/{id}/export?format=zip
+ */
+export function getExportUrl(episodeId: string, format: "json" | "zip"): string {
+  const apiBase = getApiBase();
+  return `${apiBase}/episodes/${episodeId}/export?format=${format}`;
 }

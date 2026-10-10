@@ -6,8 +6,8 @@ import {
   TaskOutcome,
   ActionReviewStatus,
   formatTimestamp,
-  HumanCorrection,
 } from "@/lib/episode";
+import { PatchChange } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,12 +21,14 @@ import {
   AlertTriangle,
   ChevronRight,
   ChevronLeft,
+  Loader2,
+  X,
 } from "lucide-react";
 
 interface SidePanelProps {
   action: EpisodeAction | null;
   currentTime: number;
-  onUpdateAction: (actionId: string, updatedFields: Partial<EpisodeAction>, correction: HumanCorrection) => void;
+  onPatchChanges: (changes: PatchChange[]) => Promise<{ success: boolean; detail?: string }>;
   onPrevAction?: () => void;
   onNextAction?: () => void;
   hasPrev?: boolean;
@@ -36,22 +38,35 @@ interface SidePanelProps {
 export function SidePanel({
   action,
   currentTime,
-  onUpdateAction,
+  onPatchChanges,
   onPrevAction,
   onNextAction,
   hasPrev,
   hasNext,
 }: SidePanelProps) {
   const [isEditing, setIsEditing] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
 
   // Initialize form states directly from action props
   const [instruction, setInstruction] = React.useState(action?.instruction || "");
   const [observedAction, setObservedAction] = React.useState(action?.observed_action || "");
   const [statedReason, setStatedReason] = React.useState(action?.stated_reason?.text || "");
+  const [inferredReason, setInferredReason] = React.useState(action?.inferred_reason || "");
   const [outcome, setOutcome] = React.useState<TaskOutcome>(action?.outcome || "success");
   const [reviewStatus, setReviewStatus] = React.useState<ActionReviewStatus>(action?.review_status || "accepted");
-  const [start, setStart] = React.useState<number>(action?.start || 0);
-  const [end, setEnd] = React.useState<number>(action?.end || 0);
+
+  const startEditing = () => {
+    if (!action) return;
+    setInstruction(action.instruction || "");
+    setObservedAction(action.observed_action || "");
+    setStatedReason(action.stated_reason?.text || "");
+    setInferredReason(action.inferred_reason || "");
+    setOutcome(action.outcome || "success");
+    setReviewStatus(action.review_status || "accepted");
+    setSaveError(null);
+    setIsEditing(true);
+  };
 
   if (!action) {
     return (
@@ -65,134 +80,77 @@ export function SidePanel({
     return action.human_corrections?.some((c) => c.field === field);
   };
 
-  const handleSave = () => {
-    const nowIso = new Date().toISOString();
+  const handleSave = async () => {
+    setSaveError(null);
+    const changes: PatchChange[] = [];
 
-    // Check instruction
     if (instruction !== action.instruction) {
-      onUpdateAction(
-        action.id,
-        { instruction },
-        {
-          field: "instruction",
-          old_value: action.instruction,
-          new_value: instruction,
-          corrected_at: nowIso,
-        }
-      );
+      changes.push({ target: action.id, field: "instruction", value: instruction });
     }
 
-    // Check observed action
     if (observedAction !== action.observed_action) {
-      onUpdateAction(
-        action.id,
-        { observed_action: observedAction },
-        {
-          field: "observed_action",
-          old_value: action.observed_action,
-          new_value: observedAction,
-          corrected_at: nowIso,
-        }
-      );
+      changes.push({ target: action.id, field: "observed_action", value: observedAction });
     }
 
-    // Check stated reason
     if (statedReason !== (action.stated_reason?.text || "")) {
-      const newStated = statedReason
-        ? {
-            text: statedReason,
-            utterance_id: action.stated_reason?.utterance_id || "correction",
-            source: "human_edit",
-          }
-        : null;
-      onUpdateAction(
-        action.id,
-        { stated_reason: newStated },
-        {
-          field: "stated_reason",
-          old_value: action.stated_reason?.text || null,
-          new_value: statedReason || null,
-          corrected_at: nowIso,
-        }
-      );
+      changes.push({
+        target: action.id,
+        field: "stated_reason",
+        value: statedReason.trim() ? statedReason.trim() : null,
+      });
     }
 
-    // Check outcome
+    if (inferredReason !== (action.inferred_reason || "")) {
+      changes.push({
+        target: action.id,
+        field: "inferred_reason",
+        value: inferredReason.trim() ? inferredReason.trim() : null,
+      });
+    }
+
     if (outcome !== action.outcome) {
-      onUpdateAction(
-        action.id,
-        { outcome },
-        {
-          field: "outcome",
-          old_value: action.outcome,
-          new_value: outcome,
-          corrected_at: nowIso,
-        }
-      );
+      changes.push({ target: action.id, field: "outcome", value: outcome });
     }
 
-    // Check review status
     if (reviewStatus !== action.review_status) {
-      onUpdateAction(
-        action.id,
-        { review_status: reviewStatus },
-        {
-          field: "review_status",
-          old_value: action.review_status,
-          new_value: reviewStatus,
-          corrected_at: nowIso,
-        }
-      );
+      changes.push({ target: action.id, field: "review_status", value: reviewStatus });
     }
 
-    // Check timestamps
-    if (start !== action.start || end !== action.end) {
-      onUpdateAction(
-        action.id,
-        { start, end },
-        {
-          field: "timestamps",
-          old_value: { start: action.start, end: action.end },
-          new_value: { start, end },
-          corrected_at: nowIso,
-        }
-      );
+    if (changes.length === 0) {
+      setIsEditing(false);
+      return;
     }
 
-    setIsEditing(false);
-  };
+    setIsSaving(true);
+    const result = await onPatchChanges(changes);
+    setIsSaving(false);
 
-  const setStartHere = () => {
-    const rounded = parseFloat(currentTime.toFixed(2));
-    setStart(rounded);
-    if (!isEditing) {
-      onUpdateAction(
-        action.id,
-        { start: rounded },
-        {
-          field: "start",
-          old_value: action.start,
-          new_value: rounded,
-          corrected_at: new Date().toISOString(),
-        }
-      );
+    if (result.success) {
+      setSaveError(null);
+      setIsEditing(false);
+    } else {
+      // Keep the user's text and show detail message (P0.1)
+      setSaveError(result.detail || "Save failed. Please check inputs and retry.");
     }
   };
 
-  const setEndHere = () => {
+  const setStartHere = async () => {
     const rounded = parseFloat(currentTime.toFixed(2));
-    setEnd(rounded);
-    if (!isEditing) {
-      onUpdateAction(
-        action.id,
-        { end: rounded },
-        {
-          field: "end",
-          old_value: action.end,
-          new_value: rounded,
-          corrected_at: new Date().toISOString(),
-        }
-      );
+    const result = await onPatchChanges([
+      { target: action.id, field: "start", value: rounded },
+    ]);
+    if (!result.success && result.detail) {
+      setSaveError(result.detail);
+    }
+  };
+
+  const setEndHere = async () => {
+    const rounded = parseFloat(currentTime.toFixed(2));
+    const result = await onPatchChanges([
+      { target: action.id, field: "end", value: rounded },
+    ]);
+    if (!result.success && result.detail) {
+      setSaveError(result.detail);
     }
   };
 
@@ -236,16 +194,22 @@ export function SidePanel({
             <Button
               variant={isEditing ? "why" : "secondary"}
               size="sm"
+              disabled={isSaving}
               onClick={() => {
                 if (isEditing) {
                   handleSave();
                 } else {
-                  setIsEditing(true);
+                  startEditing();
                 }
               }}
               className="h-7 px-2.5 text-xs gap-1 cursor-pointer ml-1"
             >
-              {isEditing ? (
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Saving...
+                </>
+              ) : isEditing ? (
                 <>
                   <Check className="w-3.5 h-3.5" />
                   Save
@@ -262,6 +226,26 @@ export function SidePanel({
       </CardHeader>
 
       <CardContent className="p-4 space-y-4 overflow-y-auto flex-1">
+        {/* Error notification on failed PATCH (P0.1) */}
+        {saveError && (
+          <div className="rounded-lg border border-red-800/80 bg-red-950/60 p-3 text-xs text-red-300 flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-red-200">Save Failed</p>
+                <p>{saveError}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSaveError(null)}
+              className="text-red-400 hover:text-white p-0.5"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Badges bar */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <Badge variant="seen" className="gap-1">
@@ -363,7 +347,7 @@ export function SidePanel({
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono text-orange-400 uppercase font-semibold">
-                  Spoken by Demonstrator {action.stated_reason?.utterance_id ? `(${action.stated_reason.utterance_id})` : ""}:
+                  Spoken by Demonstrator {action.stated_reason?.utterance_id || action.stated_reason?.evidence_ref ? `(${action.stated_reason.utterance_id || action.stated_reason.evidence_ref})` : ""}:
                 </span>
                 {isFieldEdited("stated_reason") && (
                   <span className="text-[9px] text-amber-400 font-bold font-mono">• Edited</span>
@@ -386,19 +370,34 @@ export function SidePanel({
               )}
             </div>
 
-            {/* Inferred reason (Model hypothesis - clearly labelled) */}
+            {/* Inferred reason (Model hypothesis - clearly labelled as a guess) */}
             <div className="pt-2 border-t border-emerald-950/80">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-mono text-emerald-400 uppercase font-semibold">
-                  Model Hypothesis (Visual Guess):
-                </span>
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 font-mono border border-emerald-800/80">
-                  Inferred
-                </span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-mono text-emerald-400 uppercase font-semibold">
+                    Model Hypothesis (Visual Guess):
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 font-mono border border-emerald-800/80">
+                    Inferred
+                  </span>
+                </div>
+                {isFieldEdited("inferred_reason") && (
+                  <span className="text-[9px] text-amber-400 font-bold font-mono">• Edited</span>
+                )}
               </div>
-              <p className="text-slate-300 text-xs mt-1 leading-relaxed">
-                {action.inferred_reason || "Unable to infer physical rationale from camera view."}
-              </p>
+              {isEditing ? (
+                <textarea
+                  value={inferredReason}
+                  placeholder="Enter inferred rationale hypothesis..."
+                  onChange={(e) => setInferredReason(e.target.value)}
+                  rows={2}
+                  className="w-full text-xs p-2 rounded border border-emerald-500/60 bg-[#080d12] text-white mt-1 focus:outline-none"
+                />
+              ) : (
+                <p className="text-slate-300 text-xs mt-1 leading-relaxed">
+                  {action.inferred_reason || "Unable to infer physical rationale from camera view."}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -465,8 +464,8 @@ export function SidePanel({
                 className="w-full text-xs font-mono p-1.5 rounded border border-slate-700 bg-slate-900 text-white"
               >
                 <option value="accepted">Accepted</option>
-                <option value="flagged">Needs Review</option>
-                <option value="rejected">Rejected</option>
+                <option value="needs_review">Needs Review</option>
+                <option value="unreviewed">Unreviewed</option>
               </select>
             </div>
           </div>

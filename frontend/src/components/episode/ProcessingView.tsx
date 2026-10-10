@@ -28,26 +28,26 @@ interface ProcessingStep {
 const ORDERED_STAGES: ProcessingStep[] = [
   {
     stage: "uploaded",
-    label: "Clip Uploaded",
-    description: "Multi-part video ingested and committed to storage",
+    label: "Uploaded",
+    description: "Multi-part demonstration video received and committed to storage",
     icon: UploadCloud,
   },
   {
     stage: "converting",
-    label: "Converting Media",
-    description: "Encoding H.264 MP4 with faststart for instant streaming",
+    label: "Converting media",
+    description: "Encoding H.264 playback MP4 with faststart for range streaming",
     icon: Film,
   },
   {
     stage: "analysing",
-    label: "Watching & Listening",
-    description: "Gemini 3.8 Flash analyzing video frames and spoken audio in one multimodal pass",
+    label: "Watching & listening",
+    description: "One Gemini multimodal pass: video frames and spoken narration together",
     icon: Eye,
   },
   {
     stage: "linking",
-    label: "Linking Intent & Reasons",
-    description: "Synthesizing declared intent, action boundaries, and why-moments",
+    label: "Linking reasons to steps",
+    description: "Linking stated and inferred reasons to robot instruction boundaries",
     icon: Sparkles,
   },
 ];
@@ -124,14 +124,14 @@ export function ProcessingView({
           </div>
 
           <CardTitle className="text-lg">
-            {!isFailed ? "Processing Episode" : "Processing Failed"}
+            {!isFailed ? "Processing Demonstration" : "Processing Failed"}
           </CardTitle>
           <CardDescription className="font-mono text-xs text-slate-400">
-            ID: {episodeId} · Elapsed:{" "}
+            Episode ID: <span className="text-slate-200">{episodeId}</span> · Elapsed:{" "}
             <span className="text-emerald-400 font-semibold">
               {formatElapsed(elapsedSeconds)}
             </span>{" "}
-            (Target ~60s)
+            (Target ~45–60 s)
           </CardDescription>
         </CardHeader>
 
@@ -156,7 +156,7 @@ export function ProcessingView({
                 <Button
                   variant="why"
                   className="flex-1 gap-2 cursor-pointer"
-                  onClick={() => router.push("/e/ep_20261010_container_001?mock=1")}
+                  onClick={() => router.push("/e/saved-example-01")}
                 >
                   <FileCheck2 className="w-4 h-4" />
                   Open Saved Episode
@@ -227,19 +227,6 @@ export function ProcessingView({
                   </div>
                 );
               })}
-            </div>
-          )}
-
-          {/* Fallback button during testing */}
-          {!isFailed && (
-            <div className="pt-2 text-center">
-              <button
-                type="button"
-                onClick={() => router.push(`/e/${episodeId}?mock=1`)}
-                className="text-[11px] text-slate-400 hover:text-emerald-400 underline font-mono cursor-pointer"
-              >
-                Switch to mock preview if waiting on server
-              </button>
             </div>
           )}
         </CardContent>

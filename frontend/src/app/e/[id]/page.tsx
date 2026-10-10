@@ -2,11 +2,16 @@
 
 import * as React from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { fetchEpisode, getVideoUrl, isMockMode, patchEpisodeAction } from "@/lib/api";
+import {
+  fetchEpisode,
+  getVideoUrl,
+  isMockMode,
+  patchEpisodeChanges,
+  resetSavedEpisode,
+  PatchChange,
+} from "@/lib/api";
 import {
   Episode,
-  EpisodeAction,
-  HumanCorrection,
   ProcessingStage,
 } from "@/lib/episode";
 import { VideoPlayer } from "@/components/episode/VideoPlayer";
@@ -22,6 +27,10 @@ import {
   FileCode,
   Mic,
   Cpu,
+  RotateCcw,
+  AlertTriangle,
+  FileCheck2,
+  Loader2,
 } from "lucide-react";
 
 function EpisodeShellPageContent() {
@@ -33,6 +42,9 @@ function EpisodeShellPageContent() {
   const forceMock = isMockMode(searchParams.get("mock"));
 
   const [episode, setEpisode] = React.useState<Episode | null>(null);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
+  const [isSlowLoading, setIsSlowLoading] = React.useState(false);
+  const [isResetting, setIsResetting] = React.useState(false);
   const [selectedActionId, setSelectedActionId] = React.useState<string | null>(null);
   const [currentTime, setCurrentTime] = React.useState<number>(0);
   const [isPlaying, setIsPlaying] = React.useState<boolean>(false);
@@ -41,46 +53,122 @@ function EpisodeShellPageContent() {
 
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
 
-  // Poll for episode status when processing
+  const loadData = React.useCallback(async () => {
+    try {
+      const data = await fetchEpisode(episodeId, forceMock);
+      setEpisode(data);
+      setFetchError(null);
+
+      // Auto select first action if none selected
+      if (data.actions && data.actions.length > 0) {
+        setSelectedActionId((prev) => prev || data.actions[0].id);
+      }
+
+      return data;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load episode";
+      setFetchError(msg);
+      return null;
+    }
+  }, [episodeId, forceMock]);
+
+  // Slow loading notification after 3s cold start
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsSlowLoading(true);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Polling for episode status when processing
   React.useEffect(() => {
     let mounted = true;
     let pollTimeout: NodeJS.Timeout | null = null;
 
-    const loadData = async () => {
-      try {
-        const data = await fetchEpisode(episodeId, forceMock);
-        if (!mounted) return;
+    const poll = async () => {
+      const data = await loadData();
+      if (!mounted || !data) return;
 
-        setEpisode(data);
-
-        // Auto select first action if none selected
-        if (data.actions.length > 0) {
-          setSelectedActionId((prev) => prev || data.actions[0].id);
-        }
-
-        // If not ready and not failed, poll every 1.5s
-        if (data.status.stage !== "ready" && data.status.stage !== "failed" && !forceMock) {
-          pollTimeout = setTimeout(loadData, 1500);
-        }
-      } catch (err) {
-        console.warn("Polling error:", err);
+      // If not ready and not failed, poll every 1.5s
+      if (data.status.stage !== "ready" && data.status.stage !== "failed" && !forceMock) {
+        pollTimeout = setTimeout(poll, 1500);
       }
     };
 
-    loadData();
+    poll();
 
     return () => {
       mounted = false;
       if (pollTimeout) clearTimeout(pollTimeout);
     };
-  }, [episodeId, forceMock]);
+  }, [loadData, forceMock]);
 
+  // Designed error state when fetch fails (Rule 6: No fake data, ever)
+  if (fetchError && !episode) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center max-w-lg w-full mx-auto p-4 sm:p-6 min-h-[60vh]">
+        <div className="w-full rounded-2xl border border-red-800/80 bg-[#11141d] p-6 shadow-2xl text-center space-y-5">
+          <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 mx-auto">
+            <AlertTriangle className="w-6 h-6 text-red-400" />
+          </div>
+
+          <div>
+            <h2 className="text-lg font-semibold text-white">Episode Load Failed</h2>
+            <p className="text-xs font-mono text-slate-400 mt-1">
+              ID: <span className="text-slate-200">{episodeId}</span>
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-lg border border-red-900/60 bg-red-950/30 text-xs text-red-300 font-mono text-left">
+            {fetchError}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setFetchError(null);
+                loadData();
+              }}
+              className="flex-1 gap-1.5 cursor-pointer text-xs"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Try again
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push("/")}
+              className="flex-1 gap-1.5 cursor-pointer text-xs border-slate-700"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back to capture
+            </Button>
+            <Button
+              variant="why"
+              onClick={() => router.push("/e/saved-example-01")}
+              className="flex-1 gap-1.5 cursor-pointer text-xs"
+            >
+              <FileCheck2 className="w-3.5 h-3.5" />
+              Open saved episode
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading spinner with cold start server waking note
   if (!episode) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3 text-slate-400">
           <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm font-mono">Loading episode {episodeId}...</p>
+          {isSlowLoading && (
+            <p className="text-xs text-amber-400 font-mono animate-pulse">
+              Waking the server (first load may take ~5–10 s)...
+            </p>
+          )}
         </div>
       </div>
     );
@@ -131,70 +219,44 @@ function EpisodeShellPageContent() {
     }
   };
 
+  // Patch changes using real backend contract: PATCH /episodes/{id}
+  const handlePatchChanges = async (
+    changes: PatchChange[]
+  ): Promise<{ success: boolean; detail?: string }> => {
+    const res = await patchEpisodeChanges(episode.episode_id || episodeId, changes);
+    if (res.success && res.episode) {
+      // Replace episode state with response.episode (source of truth)
+      setEpisode(res.episode);
+      return { success: true };
+    }
+    return { success: false, detail: res.detail };
+  };
+
   // Set step start/end via keyboard shortcuts ([ and ]) or phone buttons
-  const handleSetStartAtPlayhead = () => {
+  const handleSetStartAtPlayhead = async () => {
     if (!selectedAction) return;
     const rounded = parseFloat(currentTime.toFixed(2));
-    handleUpdateAction(
-      selectedAction.id,
-      { start: rounded },
-      {
-        field: "start",
-        old_value: selectedAction.start,
-        new_value: rounded,
-        corrected_at: new Date().toISOString(),
-      }
-    );
+    await handlePatchChanges([
+      { target: selectedAction.id, field: "start", value: rounded },
+    ]);
   };
 
-  const handleSetEndAtPlayhead = () => {
+  const handleSetEndAtPlayhead = async () => {
     if (!selectedAction) return;
     const rounded = parseFloat(currentTime.toFixed(2));
-    handleUpdateAction(
-      selectedAction.id,
-      { end: rounded },
-      {
-        field: "end",
-        old_value: selectedAction.end,
-        new_value: rounded,
-        corrected_at: new Date().toISOString(),
-      }
-    );
+    await handlePatchChanges([
+      { target: selectedAction.id, field: "end", value: rounded },
+    ]);
   };
 
-  // Update action with corrections applied (Rule 7: model output is never mutated, human corrections stored separately)
-  const handleUpdateAction = (
-    actionId: string,
-    updatedFields: Partial<EpisodeAction>,
-    correction: HumanCorrection
-  ) => {
-    setEpisode((prev) => {
-      if (!prev) return prev;
-      const newActions = prev.actions.map((act) => {
-        if (act.id !== actionId) return act;
-        const existingCorrections = act.human_corrections || [];
-        const filteredCorrections = existingCorrections.filter((c) => c.field !== correction.field);
-        return {
-          ...act,
-          ...updatedFields,
-          human_corrections: [...filteredCorrections, correction],
-        };
-      });
-
-      return {
-        ...prev,
-        actions: newActions,
-      };
-    });
-
-    // Send PATCH to backend (or update local state)
-    const currentAction = episode.actions.find((a) => a.id === actionId);
-    const existingCorrections = currentAction?.human_corrections || [];
-    const updatedCorrections = [
-      ...existingCorrections.filter((c) => c.field !== correction.field),
-      correction,
-    ];
-    patchEpisodeAction(episode.episode_id || episodeId, actionId, updatedCorrections);
+  // Reset human edits on a saved episode
+  const handleResetEdits = async () => {
+    setIsResetting(true);
+    const res = await resetSavedEpisode(episode.episode_id || episodeId);
+    setIsResetting(false);
+    if (res.success && res.episode) {
+      setEpisode(res.episode);
+    }
   };
 
   return (
@@ -222,17 +284,25 @@ function EpisodeShellPageContent() {
               </span>
             </h1>
             <p className="text-[11px] text-slate-400">
-              Scene: <span className="text-slate-200 font-medium">{episode.scene}</span> ·{" "}
+              Scene: <span className="text-slate-200 font-medium">{episode.scene || "demonstration"}</span> ·{" "}
               {episode.duration_seconds}s duration
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="border-slate-700 bg-slate-900/60 text-slate-300 font-mono text-xs gap-1.5 hidden md:inline-flex">
-            <Cpu className="w-3 h-3 text-slate-400" />
-            {episode.pipeline.model} ({episode.pipeline.fps}fps)
-          </Badge>
+          {forceMock && (
+            <Badge variant="outline" className="border-amber-500/80 bg-amber-950/60 text-amber-300 font-mono text-xs">
+              Mock data (?mock=1)
+            </Badge>
+          )}
+
+          {episode.pipeline && (
+            <Badge variant="outline" className="border-slate-700 bg-slate-900/60 text-slate-300 font-mono text-xs gap-1.5 hidden md:inline-flex">
+              <Cpu className="w-3 h-3 text-slate-400" />
+              {episode.pipeline.model} ({episode.pipeline.fps}fps)
+            </Badge>
+          )}
 
           <Button
             variant="secondary"
@@ -245,6 +315,40 @@ function EpisodeShellPageContent() {
           </Button>
         </div>
       </header>
+
+      {/* Saved Episode Banner (Rule 3) */}
+      {episode.saved && (
+        <div className="rounded-xl border border-emerald-800/60 bg-gradient-to-r from-emerald-950/40 via-[#0e1614] to-emerald-950/30 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center gap-2.5">
+            <Badge variant="why" className="text-[10px] font-mono uppercase tracking-wider">
+              Saved Reference
+            </Badge>
+            <span className="text-xs sm:text-sm font-semibold text-emerald-200">
+              {episode.label || "Saved episode · bike tube test clip (YouTube)"}
+            </span>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isResetting}
+            onClick={handleResetEdits}
+            className="h-7 text-xs font-mono border-slate-700 bg-slate-900/80 hover:bg-slate-800 text-slate-300 gap-1.5 cursor-pointer"
+          >
+            {isResetting ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Resetting...
+              </>
+            ) : (
+              <>
+                <RotateCcw className="w-3 h-3 text-slate-400" />
+                Reset edits
+              </>
+            )}
+          </Button>
+        </div>
+      )}
 
       {/* Task Intent & Outcome Banner */}
       <div className="rounded-xl border border-[#1e2434] bg-[#0e121a] p-3.5 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg">
@@ -317,10 +421,10 @@ function EpisodeShellPageContent() {
         {/* Right Column: Step Inspector & Inline Editor */}
         <div className="lg:col-span-5">
           <SidePanel
-            key={selectedAction ? selectedAction.id : "empty"}
+            key={selectedAction ? `${selectedAction.id}-${selectedAction.human_corrections?.length || 0}` : "empty"}
             action={selectedAction}
             currentTime={currentTime}
-            onUpdateAction={handleUpdateAction}
+            onPatchChanges={handlePatchChanges}
             onPrevAction={() => {
               if (selectedActionIndex > 0) {
                 const prev = episode.actions[selectedActionIndex - 1];

@@ -3,7 +3,14 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
-import { uploadEpisode, isMockMode, UploadProgress, getApiBase } from "@/lib/api";
+import {
+  uploadEpisode,
+  isMockMode,
+  UploadProgress,
+  getApiBase,
+  fetchSavedEpisodes,
+  SavedEpisodeListItem,
+} from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,9 +26,11 @@ import {
   QrCode,
   FileCheck2,
   Smartphone,
+  RotateCcw,
 } from "lucide-react";
 
-const MAX_FILE_SIZE_BYTES = 250 * 1024 * 1024; // 250 MB max limit
+// Backend limit: 200 MB and up to 90 seconds (P0.5)
+const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024;
 
 function CapturePageContent() {
   const router = useRouter();
@@ -36,11 +45,22 @@ function CapturePageContent() {
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState<UploadProgress | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
+  const [savedEpisode, setSavedEpisode] = React.useState<SavedEpisodeListItem | null>(null);
+
   const [currentUrl] = React.useState<string>(() => {
     return typeof window !== "undefined" ? window.location.href : "https://voicepraxis.vercel.app";
   });
 
   const apiBase = getApiBase();
+
+  // Load real saved episode from server (P0.3)
+  React.useEffect(() => {
+    fetchSavedEpisodes().then((list) => {
+      if (list && list.length > 0) {
+        setSavedEpisode(list[0]);
+      }
+    });
+  }, []);
 
   // Validate selected file (mime type and size)
   const validateFile = (file: File): boolean => {
@@ -57,7 +77,7 @@ function CapturePageContent() {
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
       const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-      setFileError(`File exceeds limit (${sizeMb} MB). Maximum size is 250 MB.`);
+      setFileError(`File exceeds limit (${sizeMb} MB). Maximum size is 200 MB (up to 90 s).`);
       return false;
     }
 
@@ -93,10 +113,11 @@ function CapturePageContent() {
       });
 
       // Navigate to the episode page
-      const mockQuery = forceMock || !apiBase ? "?mock=1" : "";
+      const mockQuery = forceMock ? "?mock=1" : "";
       router.push(`/e/${result.id}${mockQuery}`);
     } catch (err: unknown) {
       setIsUploading(false);
+      // Keep selectedFile so user can retry directly
       const errorMessage =
         err instanceof Error ? err.message : "Upload failed. Please check network and try again.";
       setFileError(errorMessage);
@@ -149,15 +170,19 @@ function CapturePageContent() {
         </div>
 
         <div className="flex items-center gap-2">
-          {apiBase ? (
+          {forceMock ? (
+            <Badge variant="outline" className="text-[11px] gap-1.5 py-1 text-orange-400 border-orange-900/60 bg-orange-950/20 font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+              Mock data
+            </Badge>
+          ) : apiBase ? (
             <Badge variant="outline" className="text-[11px] gap-1.5 py-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               API Connected
             </Badge>
           ) : (
-            <Badge variant="outline" className="text-[11px] gap-1.5 py-1 text-orange-400 border-orange-900/60 bg-orange-950/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-              Mock Active (?mock=1)
+            <Badge variant="missed" className="text-[11px] gap-1.5 py-1">
+              Backend Not Configured
             </Badge>
           )}
         </div>
@@ -179,19 +204,21 @@ function CapturePageContent() {
             </p>
           </div>
 
-          {/* Saved Episode Link Requirement */}
-          <button
-            type="button"
-            onClick={() => router.push("/e/ep_20261010_container_001?mock=1")}
-            className="shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-950/70 border border-emerald-700/80 hover:bg-emerald-900/80 text-emerald-300 transition-all cursor-pointer shadow-[0_0_12px_rgba(34,197,94,0.2)] text-xs font-mono"
-          >
-            <FileCheck2 className="w-4 h-4 text-emerald-400" />
-            <div className="text-left">
-              <div className="font-semibold text-emerald-200">Saved episode · recorded Oct 10</div>
-              <div className="text-[10px] text-emerald-400/80">Container microwave rehearsal</div>
-            </div>
-            <ArrowRight className="w-3.5 h-3.5 ml-1" />
-          </button>
+          {/* Real Saved Episode Link (P0.3) */}
+          {savedEpisode && (
+            <button
+              type="button"
+              onClick={() => router.push(`/e/${savedEpisode.id}`)}
+              className="shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-950/70 border border-emerald-700/80 hover:bg-emerald-900/80 text-emerald-300 transition-all cursor-pointer shadow-[0_0_12px_rgba(34,197,94,0.2)] text-xs font-mono"
+            >
+              <FileCheck2 className="w-4 h-4 text-emerald-400" />
+              <div className="text-left">
+                <div className="font-semibold text-emerald-200">{savedEpisode.label}</div>
+                <div className="text-[10px] text-emerald-400/80">Task: {savedEpisode.task}</div>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -204,7 +231,7 @@ function CapturePageContent() {
               <CardTitle className="text-base flex items-center justify-between">
                 <span>Demonstration Ingest</span>
                 <span className="text-xs font-mono text-slate-400 font-normal">
-                  Ideal runtime: 25–35 s @ 1080p
+                  Target: 25–35 s (up to 90 s) · Max 200 MB
                 </span>
               </CardTitle>
               <CardDescription>
@@ -276,19 +303,33 @@ function CapturePageContent() {
                       {formatFileSize(selectedFile.size)} · Ready to upload
                     </span>
                   ) : (
-                    "Supports iPhone MOV, Android MP4, and WebM (up to 250 MB)"
+                    "Supports iPhone MOV, Android MP4, and WebM (up to 200 MB, up to 90 s)"
                   )}
                 </p>
               </div>
 
               {/* Validation Error Message */}
               {fileError && (
-                <div className="rounded-lg border border-red-800/80 bg-red-950/40 p-3.5 text-xs text-red-300 flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-red-200">Upload Issue</p>
-                    <p>{fileError}</p>
+                <div className="rounded-lg border border-red-800/80 bg-red-950/40 p-3.5 text-xs text-red-300 flex items-start justify-between gap-2.5">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-red-200">Upload Issue</p>
+                      <p>{fileError}</p>
+                    </div>
                   </div>
+                  {selectedFile && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={startUpload}
+                      className="shrink-0 h-7 text-xs gap-1 border-red-800 bg-red-900/40 text-red-200 hover:bg-red-900/60 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Retry
+                    </Button>
+                  )}
                 </div>
               )}
 
@@ -334,7 +375,7 @@ function CapturePageContent() {
           </Card>
         </div>
 
-        {/* Right Column: Desktop QR Code (requirement 3) */}
+        {/* Right Column: Desktop QR Code */}
         <div className="lg:col-span-4 space-y-4">
           <Card className="border-[#1e2433] bg-[#11141d]/95 p-5 shadow-xl hidden lg:block text-center">
             <div className="flex items-center justify-center gap-2 text-xs font-mono uppercase text-slate-400 mb-3">
@@ -390,18 +431,20 @@ function CapturePageContent() {
       <footer className="pt-4 border-t border-[#1b212f] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
         <div className="flex items-center gap-2">
           <Cpu className="w-4 h-4 text-slate-400" />
-          <span>Gemini 3.8 Flash Multimodal Pipeline · Awign Labelling Hierarchy</span>
+          <span>Gemini Multimodal Pipeline · Awign Labelling Hierarchy</span>
         </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => router.push("/e/ep_20261010_container_001?mock=1")}
-            className="text-emerald-400 hover:text-emerald-300 underline font-mono cursor-pointer flex items-center gap-1"
-          >
-            <span>Saved Reference Episode</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        {savedEpisode && (
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => router.push(`/e/${savedEpisode.id}`)}
+              className="text-emerald-400 hover:text-emerald-300 underline font-mono cursor-pointer flex items-center gap-1"
+            >
+              <span>{savedEpisode.label}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </footer>
     </main>
   );

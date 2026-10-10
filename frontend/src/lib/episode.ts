@@ -27,7 +27,9 @@ export interface PipelineConfig {
 
 export interface DeclaredIntent {
   text: string;
-  utterance_id: string;
+  utterance_id?: string;
+  evidence_ref?: string;
+  source?: string;
 }
 
 export type TaskOutcome = "success" | "failed" | "unresolved";
@@ -51,12 +53,21 @@ export interface NarrationUtterance {
 
 export interface StatedReason {
   text: string;
-  utterance_id: string;
+  utterance_id?: string;
+  evidence_ref?: string;
   source?: string;
 }
 
 export type ActionAttempt = "first" | "retry" | "recovery";
-export type ActionReviewStatus = "accepted" | "flagged" | "rejected";
+
+export type ActionReviewStatus =
+  | "unreviewed"
+  | "accepted"
+  | "needs_review"
+  | "corrected"
+  | "flagged"
+  | "rejected"
+  | string;
 
 export interface HumanCorrection {
   field: string;
@@ -106,7 +117,7 @@ export interface Episode {
   media_ref: string;
   duration_seconds: number;
   status: EpisodeStatus;
-  pipeline: PipelineConfig;
+  pipeline: PipelineConfig | null;
   scene: string;
   task: EpisodeTask;
   narration: NarrationUtterance[];
@@ -116,6 +127,8 @@ export interface Episode {
   template_check: unknown | null;
   video_only: unknown | null;
   human_corrections: HumanCorrection[];
+  saved?: boolean;
+  label?: string;
 }
 
 /**

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Episode, EpisodeAction } from "@/lib/episode";
-import { downloadEpisodeJson, getApiBase } from "@/lib/api";
+import { getExportUrl } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,20 +58,8 @@ export function ExportModal({
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  const handleDownloadZip = () => {
-    const apiBase = getApiBase();
-    if (apiBase && episode.episode_id !== "mock") {
-      const a = document.createElement("a");
-      a.href = `${apiBase}/episodes/${episode.episode_id}/bundle.zip`;
-      a.download = `${episode.episode_id}_bundle.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } else {
-      // In mock mode, download episode.json
-      downloadEpisodeJson(episode, `${episode.episode_id || "episode"}.json`);
-    }
-  };
+  const jsonExportUrl = getExportUrl(episode.episode_id, "json");
+  const zipExportUrl = getExportUrl(episode.episode_id, "zip");
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -147,32 +135,30 @@ export function ExportModal({
             <pre className="whitespace-pre-wrap">{jsonString}</pre>
           </div>
 
-          {/* Action Download Buttons */}
+          {/* Action Download Buttons with plain HTML links for Safari (P0.4) */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#1a1f2c]">
             <p className="text-[11px] text-slate-400 font-mono">
-              Schema version: {episode.schema_version} · RT-2 / Imitation Learning Ready
+              Server-generated exports with verified human corrections
             </p>
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => downloadEpisodeJson(episode)}
-                className="gap-2 cursor-pointer flex-1 sm:flex-initial"
+              <a
+                href={jsonExportUrl}
+                download={`voicepraxis-${episode.episode_id}.json`}
+                className="inline-flex items-center justify-center gap-2 rounded-lg text-xs font-mono font-medium h-9 px-4 bg-[#1a202c] text-slate-200 border border-[#2d3748] hover:bg-[#242c3d] hover:text-white transition-colors flex-1 sm:flex-initial"
               >
-                <Download className="w-4 h-4 text-sky-400" />
-                Download episode.json
-              </Button>
+                <Download className="w-3.5 h-3.5 text-sky-400" />
+                Download JSON
+              </a>
 
-              <Button
-                variant="why"
-                size="sm"
-                onClick={handleDownloadZip}
-                className="gap-2 cursor-pointer flex-1 sm:flex-initial"
+              <a
+                href={zipExportUrl}
+                download={`voicepraxis-${episode.episode_id}.zip`}
+                className="inline-flex items-center justify-center gap-2 rounded-lg text-xs font-mono font-semibold h-9 px-4 bg-emerald-500 text-black shadow-[0_0_12px_rgba(34,197,94,0.3)] hover:bg-emerald-400 transition-colors flex-1 sm:flex-initial"
               >
-                <Package className="w-4 h-4" />
+                <Package className="w-3.5 h-3.5" />
                 Training Bundle (.zip)
-              </Button>
+              </a>
             </div>
           </div>
         </CardContent>
