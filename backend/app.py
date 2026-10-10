@@ -149,7 +149,7 @@ def process_episode(episode_id: str) -> None:
                 template = templates.get(template_id)
                 if template:
                     update(episode_id, stage="checking")
-                    template_check = check(pool, template, episode)
+                    template_check = check(pool, template, episode, video=playback)
             except Exception as e:
                 print(f"[templates] {episode_id} failed: {type(e).__name__}: {e}")
         update(
@@ -349,7 +349,7 @@ def api():
         template = get_template(str(body.get("template_id", "")))
         episode = apply(record["model_output"], record.get("corrections") or [])
         try:
-            result = check(KeyPool(), template, episode)
+            result = check(KeyPool(), template, episode, video=local_copy(f"videos/{episode_id}/playback.mp4"))
         except GeminiError as e:
             raise HTTPException(502, str(e))
         return public(update(episode_id, template_id=template["id"], template_check=result))

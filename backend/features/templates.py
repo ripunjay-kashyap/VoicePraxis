@@ -1,20 +1,25 @@
 """TEMPLATES: check a take against a reference episode ("record the expert once"; PLAN §7.1).
 
-A text-only Gemini call matches template steps to the take's steps. Our code then
-decides each status from two channels, did it (video) and said it (narration),
-checks every cited id exists, and writes the messages using the take's timestamps.
+A text-only Gemini call matches template steps to the take's steps. Steps it can't
+match get a second, targeted look at the take's video (the first annotation can skip
+steps, especially without narration). Our code then decides each status from two
+channels, did it (video) and said it (narration), checks every cited id exists, and
+writes the messages using the take's timestamps.
 """
 
 import json
 import time
 import uuid
+from pathlib import Path
 
 from google.genai import types
 
-from pipeline.gemini import GeminiError, KeyPool, _is_rate_limit
+from pipeline.gemini import GeminiError, KeyPool, _is_rate_limit, _upload
 
 JUDGE_MODEL = "gemini-3.5-flash-lite"
 UNCLEAR_BELOW = 0.5
+SEEN_AT_LEAST = 0.6  # a second look only counts a step as done when this sure
+VERIFY_FPS = 4
 
 # status → (severity, label); severity: action problem (red), data gap (orange), info (blue)
 STATUS = {
@@ -72,6 +77,78 @@ TAKE ACTIONS (with what the person said):
 TAKE NARRATION:
 {narration}
 """
+
+
+VERIFY_SCHEMA = {
+    "type": "object",
+    "required": ["steps"],
+    "properties": {
+        "steps": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["template_step_id", "visible", "start", "confidence", "evidence"],
+                "properties": {
+                    "template_step_id": {"type": "string"},
+                    "visible": {"type": "string", "enum": ["yes", "indirect", "no", "unclear"]},
+                    "start": {"type": ["number", "null"], "description": "Seconds from the start of the video when the step begins, or null."},
+                    "confidence": {"type": "number", "description": "0-1"},
+                    "evidence": {"type": "string", "description": "One short sentence: what you see, or why it isn't there."},
+                },
+            },
+        }
+    },
+}
+
+VERIFY_PROMPT = """Watch this video of a person doing a physical task. For EACH step below, decide from what you SEE
+whether the person performs it in this video. Ignore anything said; judge only the visible actions.
+
+- "yes": you clearly see the step happen. Give the time it starts (seconds).
+- "indirect": it happens just out of view, but what you see proves it: e.g. a hand carries the object
+  out of frame and comes back empty, or the object is in its new place afterwards. Give the time it starts.
+- "no": it doesn't happen, e.g. the person is still holding the object at the end, or does something else.
+  Don't assume a step happened only because it usually follows another one.
+- "unclear": the view doesn't show enough to tell either way.
+
+STEPS:
+{steps}
+"""
+
+
+def _verify(pool: KeyPool, video: Path, steps: list[dict]) -> dict[str, dict]:
+    """A second, targeted look at the take's video for steps the judge couldn't match."""
+    lines = "\n".join(f"{s['id']}: {s['instruction']} [{s.get('verb')} · {s.get('object')}]" for s in steps)
+    last = None
+    for k in pool.order():
+        client = pool.clients[k]
+        try:
+            f = _upload(client, video)
+            part = types.Part(
+                file_data=types.FileData(file_uri=f.uri, mime_type=f.mime_type),
+                video_metadata=types.VideoMetadata(fps=VERIFY_FPS),
+            )
+            resp = client.models.generate_content(
+                model=JUDGE_MODEL,
+                contents=[types.Content(role="user", parts=[part, types.Part(text=VERIFY_PROMPT.format(steps=lines))])],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_json_schema=VERIFY_SCHEMA,
+                    thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW),
+                    max_output_tokens=2048,
+                ),
+            )
+            try:
+                client.files.delete(name=f.name)
+            except Exception:
+                pass
+            return {v.get("template_step_id"): v for v in json.loads(resp.text or "{}").get("steps", [])}
+        except Exception as e:  # any failure: log it and try the next key
+            last = e
+            print(f"[templates] verify failed on key {k + 1}: {type(e).__name__}: {str(e)[:300]}")
+            if not _is_rate_limit(e):
+                time.sleep(0.5)
+    print(f"[templates] verify gave up: {type(last).__name__ if last else 'no keys'}")
+    return {}
 
 
 def steps_from_episode(episode: dict) -> list[dict]:
@@ -141,25 +218,61 @@ def _judge(pool: KeyPool, template: dict, take: dict) -> list[dict]:
     raise GeminiError("The template check couldn't run right now. Try again in a moment.") from last
 
 
-def check(pool: KeyPool, template: dict, take: dict) -> dict:
-    """Returns template_check for the take (statuses decided by code, not the model)."""
+def check(pool: KeyPool, template: dict, take: dict, video: Path | None = None) -> dict:
+    """Returns template_check for the take (statuses decided by code, not the model).
+
+    With `video`, steps the judge couldn't match get a second look at the take's video.
+    """
     actions = {a["id"]: a for a in take["actions"]}
     by_step = {m.get("template_step_id"): m for m in _judge(pool, template, take)}
+
+    # First pass: match each template step to a take action (cited ids must exist, once each).
     used: set[str] = set()
-    rows = []
+    matched: dict[str, dict] = {}
     for step in template["steps"]:
         m = by_step.get(step["id"]) or {}
         act_id = m.get("matched_action_id")
-        if act_id not in actions or act_id in used:  # cited ids must exist, once each
+        if act_id not in actions or act_id in used:
             act_id = None
         if act_id:
             used.add(act_id)
+        did = m.get("did_it", "unclear") if act_id or m.get("did_it") != "yes" else "unclear"
+        matched[step["id"]] = {"m": m, "act_id": act_id, "did": did}
+
+    # Second look at the video for unmatched steps that weren't skipped on purpose.
+    seen: dict[str, dict] = {}
+    todo = [
+        st for st in template["steps"]
+        if matched[st["id"]]["did"] != "yes" and not (matched[st["id"]]["m"].get("skip_reason") or "").strip()
+    ]
+    if video is not None and todo:
+        seen = _verify(pool, video, todo)
+
+    # With no speech at all, "not seen" is weak evidence (steps often happen just out of frame),
+    # so an unseen step is flagged for a person to check instead of being called missed.
+    silent_take = not take.get("narration")
+
+    rows = []
+    for step in template["steps"]:
+        m, act_id, did = matched[step["id"]]["m"], matched[step["id"]]["act_id"], matched[step["id"]]["did"]
         act = actions.get(act_id) if act_id else None
-        did = m.get("did_it", "unclear") if act or m.get("did_it") != "yes" else "unclear"
         said = bool(m.get("said_it")) or bool(act and act.get("stated_reason"))
         conf = float(m.get("confidence") or 0)
         skip = (m.get("skip_reason") or "").strip() or None
-        where = f" at {_fmt_time(act['start'])}" if act else ""
+        when = act["start"] if act else None
+        v = seen.get(step["id"])
+        second_look = None
+        if v:
+            vconf = float(v.get("confidence") or 0)
+            if v.get("visible") in ("yes", "indirect") and vconf >= SEEN_AT_LEAST:
+                did, conf = "yes", vconf
+                start = v.get("start")
+                when = float(start) if isinstance(start, (int, float)) else None
+                second_look = "seen" if v.get("visible") == "yes" else "out_of_view"
+            elif v.get("visible") == "no" and vconf >= SEEN_AT_LEAST:
+                did, conf = "no", max(conf, vconf)
+                second_look = "not_seen"
+        where = f" at {_fmt_time(when)}" if when is not None else ""
         step = {**step, "instruction": step["instruction"].strip().rstrip(".")}
 
         if conf < UNCLEAR_BELOW or did == "unclear":
@@ -169,11 +282,15 @@ def check(pool: KeyPool, template: dict, take: dict) -> dict:
                 status, msg = "complete", f"\u201c{step['instruction']}\u201d{where}: done and said."
             else:
                 status, msg = "not_narrated", f"Did \u201c{step['instruction']}\u201d{where} but didn't say so."
+            if second_look == "out_of_view":
+                msg = msg.rstrip(".") + " (done just out of view)."
         else:
             if skip:
                 status, msg = "deliberate_skip", f"Skipped \u201c{step['instruction']}\u201d. They said: {skip}"
             elif said:
                 status, msg = "said_not_seen", f"Said \u201c{step['instruction']}\u201d, but it isn't visible."
+            elif step.get("required", True) and silent_take:
+                status, msg = "unclear", f"\u201c{step['instruction']}\u201d wasn't visible, and nothing was said to confirm it; check it."
             elif step.get("required", True):
                 status, msg = "missed", f"{step['instruction']}: not done and not mentioned."
             else:
@@ -182,7 +299,8 @@ def check(pool: KeyPool, template: dict, take: dict) -> dict:
         rows.append({
             "template_step_id": step["id"], "instruction": step["instruction"], "required": step.get("required", True),
             "status": status, "label": label, "severity": severity, "message": msg,
-            "action_ref": act_id, "time": act["start"] if act else None, "confidence": round(conf, 2),
+            "action_ref": act_id, "time": when, "confidence": round(conf, 2),
+            **({"second_look": second_look, "second_look_evidence": (v or {}).get("evidence")} if second_look else {}),
         })
 
     # Order: matched take actions should appear in template order.
