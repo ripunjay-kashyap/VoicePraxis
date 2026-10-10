@@ -20,11 +20,9 @@ UNCLEAR_BELOW = 0.5
 STATUS = {
     "complete": ("ok", "Complete"),
     "not_narrated": ("gap", "Not narrated"),
-    "no_reason": ("gap", "No reason given"),
     "said_not_seen": ("gap", "Said, not seen"),
     "missed": ("problem", "Missed"),
     "deliberate_skip": ("info", "Skipped on purpose"),
-    "different_reason": ("info", "Different reason"),
     "unclear": ("gap", "Unclear"),
 }
 
@@ -36,16 +34,13 @@ JUDGE_SCHEMA = {
             "type": "array",
             "items": {
                 "type": "object",
-                "required": ["template_step_id", "matched_action_id", "did_it", "said_what", "said_why",
-                             "reason_matches", "skip_reason", "confidence"],
+                "required": ["template_step_id", "matched_action_id", "did_it", "said_it", "skip_reason", "confidence"],
                 "properties": {
                     "template_step_id": {"type": "string"},
-                    "matched_action_id": {"type": ["string", "null"], "description": "The take action that performs this step, or null."},
-                    "did_it": {"type": "string", "enum": ["yes", "no", "unclear"], "description": "Is the step visibly done in the take?"},
-                    "said_what": {"type": "boolean", "description": "Does the take's narration mention doing this step?"},
-                    "said_why": {"type": "boolean", "description": "Does the take's narration give a reason for this step?"},
-                    "reason_matches": {"type": "string", "enum": ["yes", "no", "na"], "description": "Is the take's reason the same idea as the reference reason? na if either is missing."},
-                    "skip_reason": {"type": ["string", "null"], "description": "If the step was skipped, the reason the person SAID for skipping it (quote), else null."},
+                    "matched_action_id": {"type": ["string", "null"], "description": "The take action with the same intent as this step, or null."},
+                    "did_it": {"type": "string", "enum": ["yes", "no", "unclear"], "description": "Is a step with the same intent visibly done in the take?"},
+                    "said_it": {"type": "boolean", "description": "Does the take's narration mention doing this step (any wording)?"},
+                    "skip_reason": {"type": ["string", "null"], "description": "If skipped, the reason the person SAID for skipping it (quote), else null."},
                     "confidence": {"type": "number", "description": "0-1: how sure you are about this match."},
                 },
             },
@@ -53,22 +48,25 @@ JUDGE_SCHEMA = {
     },
 }
 
-JUDGE_PROMPT = """You compare a TAKE of a physical task against a TEMPLATE (an expert's reference recording).
-Both were already annotated from video and narration. Use only the data given; do not invent anything.
+JUDGE_PROMPT = """You compare a TAKE of a physical task with a TEMPLATE (an expert's reference recording of the same task).
+Both were annotated from their video (actions) and narration (what the person said). Use only this data.
 
+Match by INTENT, not wording: "unscrew the cap" and "open the bottle top" are the same step.
 For EVERY template step, return one entry:
-- matched_action_id: the take action that performs the same step (same purpose; wording may differ), or null.
-- did_it: "yes" if a take action clearly performs it, "no" if no action does, "unclear" if unsure.
-- said_what / said_why: whether the take's narration mentions doing it / gives a reason for it.
-- reason_matches: whether the take's stated reason is the same idea as the template's reference reason.
-- skip_reason: if the person explicitly said why they skipped the step, quote it; else null.
+- matched_action_id: the take action with the same intent, or null if none.
+- did_it: "yes" if that step is visibly done in the take, "no" if not, "unclear" if you can't tell.
+- said_it: true if the take's narration mentions doing this step, in any words.
+- skip_reason: if the person explicitly said why they skipped it, quote it; else null.
 - confidence: 0-1.
-Each take action can match at most one template step.
+Each take action can match at most one template step. Do not judge reasons or style, only whether each step happened and was said.
 
-TEMPLATE STEPS:
+TEMPLATE STEPS (with what the expert said):
 {template}
 
-TAKE ACTIONS:
+TEMPLATE NARRATION:
+{template_narration}
+
+TAKE ACTIONS (with what the person said):
 {actions}
 
 TAKE NARRATION:
@@ -99,6 +97,7 @@ def new_template(name: str, episode_id: str, episode: dict, steps: list[dict] | 
         "task": episode.get("task", {}).get("name"),
         "created_at": time.time(),
         "steps": steps or steps_from_episode(episode),
+        "narration": [u["text"] for u in episode.get("narration", [])],
     }
 
 
@@ -109,16 +108,17 @@ def _fmt_time(t: float) -> str:
 def _judge(pool: KeyPool, template: dict, take: dict) -> list[dict]:
     t_lines = "\n".join(
         f"{s['id']}: {s['instruction']} [{s.get('verb')} · {s.get('object')}]"
-        f" | reference reason: {s.get('reference_reason') or 'none'}"
+        f" | expert said: {s.get('reference_reason') or 'nothing'}"
         for s in template["steps"]
     )
     a_lines = "\n".join(
         f"{a['id']} [{a['start']:.1f}-{a['end']:.1f}s] {a.get('verb')} · {a.get('object')}: {a.get('observed_action')}"
-        f" | stated reason: {(a.get('stated_reason') or {}).get('text') or 'none'}"
+        f" | said: {(a.get('stated_reason') or {}).get('text') or 'nothing'}"
         for a in take["actions"]
     )
     n_lines = "\n".join(f"[{u['start']:.1f}s] {u['text']}" for u in take.get("narration", [])) or "(no narration)"
-    prompt = JUDGE_PROMPT.format(template=t_lines, actions=a_lines, narration=n_lines)
+    tn_lines = "\n".join(template.get("narration") or []) or "(not stored)"
+    prompt = JUDGE_PROMPT.format(template=t_lines, template_narration=tn_lines, actions=a_lines, narration=n_lines)
     last = None
     for k in pool.order():
         try:
@@ -156,36 +156,28 @@ def check(pool: KeyPool, template: dict, take: dict) -> dict:
             used.add(act_id)
         act = actions.get(act_id) if act_id else None
         did = m.get("did_it", "unclear") if act or m.get("did_it") != "yes" else "unclear"
-        said_what, said_why = bool(m.get("said_what")), bool(m.get("said_why"))
-        if act and act.get("stated_reason"):
-            said_what = said_why = True  # the pipeline already linked a spoken reason
+        said = bool(m.get("said_it")) or bool(act and act.get("stated_reason"))
         conf = float(m.get("confidence") or 0)
         skip = (m.get("skip_reason") or "").strip() or None
         where = f" at {_fmt_time(act['start'])}" if act else ""
         step = {**step, "instruction": step["instruction"].strip().rstrip(".")}
-        ref = step.get("reference_reason")
 
         if conf < UNCLEAR_BELOW or did == "unclear":
-            status, msg = "unclear", f"Couldn't tell whether “{step['instruction']}” was done; check it."
+            status, msg = "unclear", f"Couldn't tell whether \u201c{step['instruction']}\u201d was done; check it."
         elif did == "yes":
-            if not said_what:
-                status, msg = "not_narrated", f"Did “{step['instruction']}”{where} but didn't say so."
-            elif not said_why:
-                status = "no_reason"
-                msg = f"Did “{step['instruction']}”{where} but didn't say why." + (f" Reference: {ref}" if ref else "")
-            elif ref and m.get("reason_matches") == "no":
-                status, msg = "different_reason", f"Gave a different reason for “{step['instruction']}”{where} (noted, not an error)."
+            if said:
+                status, msg = "complete", f"\u201c{step['instruction']}\u201d{where}: done and said."
             else:
-                status, msg = "complete", f"“{step['instruction']}”{where}: done and explained."
+                status, msg = "not_narrated", f"Did \u201c{step['instruction']}\u201d{where} but didn't say so."
         else:
             if skip:
-                status, msg = "deliberate_skip", f"Skipped “{step['instruction']}”. They said: {skip}"
-            elif said_what:
-                status, msg = "said_not_seen", f"Said they'd “{step['instruction']}”, but it isn't visible."
+                status, msg = "deliberate_skip", f"Skipped \u201c{step['instruction']}\u201d. They said: {skip}"
+            elif said:
+                status, msg = "said_not_seen", f"Said \u201c{step['instruction']}\u201d, but it isn't visible."
+            elif step.get("required", True):
+                status, msg = "missed", f"{step['instruction']}: not done and not mentioned."
             else:
-                status = "missed" if step.get("required", True) else "complete"
-                msg = (f"{step['instruction']}: not seen and not mentioned." if step.get("required", True)
-                       else f"Optional step not done: {step['instruction']}.")
+                status, msg = "complete", f"Optional step not done: {step['instruction']}."
         severity, label = STATUS[status]
         rows.append({
             "template_step_id": step["id"], "instruction": step["instruction"], "required": step.get("required", True),
@@ -196,7 +188,7 @@ def check(pool: KeyPool, template: dict, take: dict) -> dict:
     # Order: matched take actions should appear in template order.
     matched = [r for r in rows if r["time"] is not None]
     for prev, cur in zip(matched, matched[1:]):
-        if cur["time"] < prev["time"] and cur["status"] in ("complete", "different_reason"):
+        if cur["time"] < prev["time"] and cur["status"] == "complete":
             cur["out_of_order"] = True
             cur["message"] += f" Done before “{prev['instruction']}” (out of order)."
 
